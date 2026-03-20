@@ -1,0 +1,4 @@
+#project output
+**/build
+#tool
+SDK/util/*.txt

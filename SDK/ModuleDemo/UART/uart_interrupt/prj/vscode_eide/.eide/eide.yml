@@ -1,0 +1,70 @@
+version: "4.1"
+name: uart_interrupt
+type: RISC-V
+deviceName: null
+packDir: null
+srcDirs:
+  - ../../../../../Libraries
+  - ../../user
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: 8c56943af6e6338e562f8f12ae7e4f74
+targets:
+  Debug:
+    cppPreprocessAttrs:
+      defineList: []
+      incList: []
+      libList: []
+    excludeList:
+      - ../../../../../Libraries/bt_code
+      - ../../../../../Libraries/sdk/yc_bt
+      - ../../../../../Libraries/sdk/yc_usb
+    toolchain: RISCV_GCC
+    toolchainConfigMap:
+      RISCV_GCC:
+        linkerScriptPath: ${ProjectRoot}\..\..\..\..\..\util\link_script.ld
+        options:
+          version: 2
+          afterBuildTasks:
+            - name: gen asm
+              abortAfterFailed: true
+              command: '"${ToolchainRoot}/bin/${CompilerPrefix}objdump" -S "${ExecutableName}.elf" > "${ExecutableName}.asm"'
+              disable: false
+            - name: gen dat
+              abortAfterFailed: true
+              command: python "${ProjectRoot}/../../../../../util/gendat.py" "${ExecutableName}.bin" "${ProjectRoot}/../../../../../Libraries/core/board_config.h"
+              disable: false
+          asm-compiler:
+            ASM_FLAGS: -Wl,-Bstatic -ffunction-sections -fdata-sections -fno-common
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            CXX_FLAGS: -Wl,-Bstatic -ffunction-sections -fdata-sections -fno-common -Wno-format
+            C_FLAGS: -Wl,-Bstatic -ffunction-sections -fdata-sections -fno-common -Wno-format
+            language-c: gnu17
+            language-cpp: c++11
+            one-elf-section-per-data: true
+            one-elf-section-per-function: true
+            optimization: level-size
+            warnings: all-warnings
+          global:
+            abi: ilp32f
+            arch: rv32imafc
+            code-model: medlow
+            misc-control: -msmall-data-limit=0 -mno-save-restore --specs=nano.specs --specs=nosys.specs -ffixed-ft0 -ffixed-ft1
+            output-debug-info: enable
+          linker:
+            LD_FLAGS: -nostartfiles -Wl,-M,--gc-sections -Wl,--check-sections
+            LIB_FLAGS: -lm -lc -lstdc++
+            output-format: elf
+            remove-unused-input-sections: true
+    uploadConfigMap:
+      Custom:
+        bin: ""
+        commandLine: python "${ProjectRoot}/../../../../../util/download.py" "${ExecutableName}.dat"
+        eraseChipCommand: e p&e fc
+    uploader: Custom

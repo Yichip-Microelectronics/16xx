@@ -55,6 +55,7 @@ typedef enum
  */
 typedef enum
 {
+    CHARGE_CURRENT_20MA,
     CHARGE_CURRENT_30MA,
     CHARGE_CURRENT_40MA,
     CHARGE_CURRENT_50MA,
@@ -69,8 +70,7 @@ typedef enum
     CHARGE_CURRENT_140MA,
     CHARGE_CURRENT_150MA,
     CHARGE_CURRENT_160MA,
-    CHARGE_CURRENT_170MA,
-    CHARGE_CURRENT_180MA
+    CHARGE_CURRENT_170MA
 }CHARGE_CurrentEnum;
 
 void CHARGE_VolSel(int8_t CutOffVol, int8_t RechgrVol);

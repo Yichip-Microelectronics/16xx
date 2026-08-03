@@ -60,18 +60,6 @@ void SYSTICK_Config(uint32_t reloadValue)
     SYSTICK_Disable();
     SystickCount = 0;
     SystickReloadValue=reloadValue;
-    /*write systick to 0*/
-    ADDR(0x8030) = 0;
-    ADDRB(0x8044) = 1<<1;
-    /*set sys_timer*/
-    ADDR(0x8080) = ADDR(0x8040) + 10000;
-    // /*timer enable && auto reload*/
-    // ADDRB(0x8084) = (1<<0) | (1<<2);
-    // /*set period 100us*/
-    // ADDR(0x8088) = 100;
-    // set_csr_bit(csr_mie,MIE_TIMER);
-    // set_csr_bit(csr_mie,MIE_BTTMR);
-
     CORE_CHIP_SYS->sys_timer_period.bit.sys_timer_period = reloadValue;
     CORE_CHIP_SYS->sys_timer_en.bit.sys_timer_autoadd = ENABLE;
     CORE_CHIP_SYS->sys_timer_en.bit.sys_timer_en = ENABLE;
@@ -176,7 +164,7 @@ void SYSTICK_Recover(void)
  * @param  None
  * @retval None
  */
-void SYSTICK_SetClk1M(void)
+_ramcode void SYSTICK_SetClk1M(void)
 {
     CORE_CHIP_SYS->systick_div1m.reg = (SYSCTRL_GetSystemClk()/1000000) - 1;
 }

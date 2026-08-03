@@ -23,6 +23,8 @@ targets:
     excludeList:
       - ../../../../../Libraries/bt_code
       - ../../../../../Libraries/sdk/yc_bt
+    settings:
+      debugger: cortex-debug
     toolchain: RISCV_GCC
     toolchainConfigMap:
       RISCV_GCC:

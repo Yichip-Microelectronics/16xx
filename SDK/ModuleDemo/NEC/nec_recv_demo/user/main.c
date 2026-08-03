@@ -205,7 +205,7 @@ _interrupt void VECTOR_SYSTICK_IRQ(void)
 #if (NEC_IRQ_ENABLE)
 void NEC_IRQHandler(void)
 {
-    uint8_t necStatus=NEC_GeIrqStatus();
+    uint8_t necStatus=NEC_GetIrqStatus();
     nec_recv_process();
     NEC_ClearIrq(necStatus);
 }

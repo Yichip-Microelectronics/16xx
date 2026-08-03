@@ -10,12 +10,12 @@ Description  : vector irq driver interface implement.
 
 void static inline set_csr_bit(const int csr, int bit)
 {
-    asm("csrs %0,%1" :: "i"(csr), "r"(bit));
+    __ASM("csrs %0,%1" :: "i"(csr), "r"(bit));
 }
 
 void static inline clr_csr_bit(const int csr, int bit)
 {
-    asm("csrc %0,%1" :: "i"(csr), "r"(bit));
+    __ASM("csrc %0,%1" :: "i"(csr), "r"(bit));
 }
 
 /**

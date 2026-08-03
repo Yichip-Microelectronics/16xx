@@ -41,6 +41,7 @@ extern "C" {
 
 #define W25X_PAGE_PROGRAM               0x02
 #define W25X_SECTOR_ERASE               0x20
+#define W25X_UNIQUEID                   0x4B
 #define W25X_BLOCK_ERASE32K             0x52
 #define W25X_BLOCK_ERASE64K             0xD8
 #define FlashCMD_PageErase              0x81
@@ -63,7 +64,7 @@ extern "C" {
 #define QSPICFG_MODE_EB                 (QSPICFG_QUAD_MODE | QSPICFG_MBYTE | 0x6000 | 4 << QCSFT_DUMMY)
 #define QSPICFG_MODE_E7                 (QSPICFG_QUAD_MODE | QSPICFG_MBYTE | 0x6000 | 2 << QCSFT_DUMMY)
 
-#define PARAM_MCU_ADDR(flashAddr)       (((((flashAddr)-4096-8-16)/34)*32)|0x1000000)
+#define PARAM_MCU_ADDR(flashAddr)       (((((flashAddr)-CORE_QSPI->flash_offset.bit.flash_offset)/34)*32)|0x1000000)
 
 uint8_t FLASH_Write(uint32_t flashAddr, uint32_t tlen, uint8_t *tbuf);
 uint8_t FLASH_Read(uint32_t flashAddr, uint32_t rlen, uint8_t *rbuf);
@@ -76,6 +77,7 @@ uint8_t FLASH_BlockErase_64k(uint32_t flashAddr);
 uint8_t FLASH_Powerdown(void);
 uint8_t FLASH_SetReadMode(uint8_t readModeCmd);
 uint32_t FLASH_GetJedecId(void);
+uint8_t FLASH_GetUniqueID(uint8_t *uid_buf);
 void FLASH_SetParamAddr(uint32_t paramOffset);
 #ifdef __cplusplus
 }

@@ -80,7 +80,7 @@ void NEC_PtrInit(void);
 void NEC_Cmd(FunctionalState state);
 void NEC_SetIrq(uint8_t irqType,FunctionalState state);
 void NEC_ClearIrq(uint8_t irqType);
-uint8_t NEC_GeIrqStatus(void);
+uint8_t NEC_GetIrqStatus(void);
 int NEC_WriteData(uint16_t *buf,int len);
 uint16_t NEC_ReadData(void);
 uint32_t NEC_GetDataCount(void);

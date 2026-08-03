@@ -148,7 +148,7 @@ void NEC_ClearIrq(uint8_t irqType)
  * @param  : None
  * @retval : NEC irq status
  */
-uint8_t NEC_GeIrqStatus(void)
+uint8_t NEC_GetIrqStatus(void)
 {
     return (CORE_NEC->nec_status.reg&0x03);
 }

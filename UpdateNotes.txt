@@ -1,2 +1,21 @@
+V2905->V3526：
+1、创建工程模板*.ept更新
+2、链接脚本优化
+3、固件生成工具增加整体固件CRC32校验码
+4、SYSTICK中断服务函数修复
+5、增加免晶体demo示例sysctrl_no_crystal
+6、增加RTOS demo(FreeRTOS、rt_thread、UCOS)
+7、休眠唤醒逻辑优化
+8、增加USB HID及ble OTA demo
+9、纠正NEC函数拼写错误(NEC_GeIrqStatus->NEC_GetIrqStatus)
+10、增加ble demo
+11、AUDIO DAC demo增加PA电路使能
+12、启动及中断处理文件文件优化
+13、ble库完善、增加ble master支持
+14、日志系统优化(增加自定义打印函数)
+15、board_config.h适配主流封装开发板、增加应用层app_board_config.h文件支持
+16、补充硬件CheckList表格
+17、完善驱动API及demo说明文档《YC16xx SDK开发手册.pdf》
+18、补充各开发板资料
 V2905:
 1、initial version

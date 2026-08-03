@@ -8,8 +8,6 @@
 
 #define RTC_WAKEUP_TIME         (5000)/*ms*/
 
-uint32_t LPM_RETENTION lpm_sys_irq_status=0;
-
 void wakeup_FlagAnalysis(void)
 {
     yc_log("wakeup_flag=%x",LpmRecoverStruct->wakeup_flag);
@@ -59,16 +57,9 @@ void wakeup_FlagAnalysis(void)
         }
         if(LpmRecoverStruct->wakeup_flag&WAKEUP_FLAG_RAM_CRC_ERR)
         {
-            yc_log("ram verify error");
+            yc_log("retention ram no keep");
         }
     }
-}
-
-void printport_deinit(void)
-{
-    UART_DeInit(PRINT_PORT);
-    GPIO_Config(PRINT_TX_IO_PIN,GPIO_MODE_HI_Z);
-    GPIO_Config(PRINT_RX_IO_PIN,GPIO_MODE_HI_Z);
 }
 
 void LPM_prepareActionBeforeSleep(LPM_ModeEnum sleepLevel)
@@ -87,6 +78,7 @@ void LPM_prepareActionBeforeSleep(LPM_ModeEnum sleepLevel)
     LPM_SetGpioLatch(GPIO_PWM3_PIN,LATCH_OUTPUT_HIGH);
     //gpio wakeup config
     GPIO_Config(KEY1_PIN,GPIO_MODE_PULL_UP);
+    LPM_SetGpioLatch(KEY1_PIN,LATCH_PU);
     GPIO_SetWakeupType(KEY1_PIN,SLEEP_LOWWAKE);
 
     /*
@@ -94,32 +86,17 @@ void LPM_prepareActionBeforeSleep(LPM_ModeEnum sleepLevel)
     并根据外围电路将睡眠期间不使用的GPIO配置成GPIO_MODE_HI_Z
     */
 
-    lpm_sys_irq_status=__disable_irq();
-    yc_log("lpm_sys_irq_status[sleep]=%x",lpm_sys_irq_status);
+    __disable_irq();
+    /*保电电压配置*/
     LpmRecoverStruct->rg_lpm_ldo_dig_retmem_vsel.bit.sleep=5;
-    LpmRecoverStruct->rg_lpm_ldo_dig_lpm_vosel.bit.sleep=0;
-
-    /*唤醒响应时间调整*/
-    LPM_CONTROL->digldo_cnt.bit.digldo_cnt=0x0;
-    LPM_CONTROL->digldo_cnt.bit.rco_cnt=0x0;
-    LPM_CONTROL->xtal_cnt.reg=0x0;
-    LPM_CONTROL->exen_cnt.reg=0x0;
-
-    yc_log("rg_lpm_ldo_dig_retmem_vsel=%x",LpmRecoverStruct->rg_lpm_ldo_dig_retmem_vsel.bit.sleep);
-    yc_log("rg_lpm_ldo_dig_lpm_vosel=%x",LpmRecoverStruct->rg_lpm_ldo_dig_lpm_vosel.bit.sleep);
-    while(UART_GetTxCount(PRINT_PORT)>0);
+    LpmRecoverStruct->rg_lpm_ldo_dig_lpm_vosel.bit.sleep=2;
     printport_deinit();
 }
 
-extern void __libc_init_array(void);
 void LPM_postActionWakeup(LPM_ModeEnum sleepLevel)
 {
-    __libc_init_array();
-    SYSCTRL_SystemInit();
     SYSCTRL_ChipInit();
     printport_init();
-    __enable_irq(lpm_sys_irq_status);
-    yc_log("lpm_sys_irq_status[wake]=%x",lpm_sys_irq_status);
 }
 
 uint8_t led_flag=0;
@@ -141,10 +118,17 @@ int main(void)
         {
             switch (UART_ReceiveData(PRINT_PORT))
             {
-                case 's':
+                case 'l':
                     yc_log("lpm sleep");
-                    LPM_Sleep(RTC_WAKEUP_TIME,SLEEP_MODE_DEEP,0x1f,WAKEUP_FROM_SLEEP,LPM_prepareActionBeforeSleep,LPM_postActionWakeup);
+                    LPM_Sleep(RTC_WAKEUP_TIME,SLEEP_MODE_DEEP,0x11,WAKEUP_FROM_SLEEP,LPM_prepareActionBeforeSleep,LPM_postActionWakeup);
                     yc_log("wakeup");
+                    wakeup_FlagAnalysis();
+                    break;
+
+                case 's':
+                    yc_log("deep sleep(no retention)");
+                    LPM_Sleep(RTC_WAKEUP_TIME,SLEEP_MODE_DEEP,0x00,WAKEUP_FROM_MAIN,LPM_prepareActionBeforeSleep,LPM_postActionWakeup);
+                    yc_log("deep sleep wakeup");
                     wakeup_FlagAnalysis();
                     break;
 

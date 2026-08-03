@@ -164,7 +164,7 @@ VECTOR_IRQ_TABLE:
     j Default_Handler          //8
     j Default_Handler          //9
     j Default_Handler          //10
-    j EXTI_IRQHandler          //11 extirq
+    j _EXTI_IRQHandler         //11 extirq
     j Default_Handler          //12
     j Default_Handler          //13
     j Default_Handler          //14
@@ -186,62 +186,38 @@ VECTOR_IRQ_TABLE:
     j _VECTOR_BTTIMER_IRQ      //30
     j _VECTOR_BT_IRQ           //31
 
-    .option rvc/*启用压缩指令集 */
+.option rvc/*启用压缩指令集 */
 
-    .align 2
-EXTI_IRQHandler:
+.macro vector_irq_handler irq_name
+    .align  2
+    .global _\irq_name
+    .type   _\irq_name, %function
+    _\irq_name:
+        la tp, \irq_name
+        jr tp
+    .size   \irq_name, . - \irq_name
+.endm
 
-    SAVE_CONTEXT
-    SAVE_CSR_CONTEXT
+vector_irq_handler VECTOR_SOFT_IRQ
+vector_irq_handler VECTOR_SYSTICK_IRQ
+vector_irq_handler EXTI_IRQHandler
+vector_irq_handler VECTOR_RTC_IRQ
+vector_irq_handler VECTOR_QSPI2_IRQ
+vector_irq_handler VECTOR_QSPI1_IRQ
+vector_irq_handler VECTOR_QSPI_IRQ
+vector_irq_handler VECTOR_UARTA_IRQ
+vector_irq_handler VECTOR_SADC_IRQ
+vector_irq_handler VECTOR_GDAC_IRQ
+vector_irq_handler VECTOR_TIMERGR0_IRQ
+vector_irq_handler VECTOR_WDT_IRQ
+vector_irq_handler VECTOR_SDMA_IRQ
+vector_irq_handler VECTOR_GPIO_IRQ
+vector_irq_handler VECTOR_MIC_IRQ
+vector_irq_handler VECTOR_AES_IRQ
+vector_irq_handler VECTOR_USB_IRQ
+vector_irq_handler VECTOR_BTTIMER_IRQ
+vector_irq_handler VECTOR_BT_IRQ
 
-_IRQ:
-    /* get irq */
-    la t0,plic_irq_table
-    li t1,0x00008E64        /* t1: irq num */
-    lw t1,0(t1)
-    slli t2, t1, 2
-    add t0, t0, t2
-    lw t2, (t0)
-    sw t1,39*REGBYTES(sp)
-    ENABLE_MIE
-
-    jalr t2         /* jump to irq */
-
-    DISABLE_MIE
-    /* clear pending mask*/
-    lw t1,39*REGBYTES(sp)
-    li t0,0x00008E64
-    sw t1,(t0)
-    nop
-    nop
-    /*enter new irq or recover */
-    lw t1,4(t0)
-    bgt t1,x0,_IRQ
-    /*enable pri mie */
-    li t0,MSTATUS_PRV1
-    csrs mstatus,t0
-
-    RESTORE_CSR_CONTEXT
-    RESTORE_CONTEXT
-    mret
-
-.brk:
-    SAVE_CONTEXT
-    la t0,brk_table
-    li t1,0x00008e80    /*get brk num */
-    lw t1,0(t1)
-    andi t1,t1,7
-    slli t2,t1,2
-    add t0,t0,t2
-    lw t2,(t0)
-
-    jalr t2
-
-    li t1,0x00008e80    /*clear brk num */
-    sw x0,0(t1)
-
-    RESTORE_CONTEXT
-    dret
 
 .align 2
 .globl trap
@@ -273,8 +249,8 @@ __trap:
     SAVE_CONTEXT
     SAVE_CSR_CONTEXT
     /*save regs */
-    la ra, trap_c
-    jr ra
+    la tp, trap_c
+    jr tp
     /*never reatch here */
     j .
 
@@ -312,131 +288,146 @@ ecall_handle:
     la tp,ECALL_IRQHandler
     jr tp
 
-.align  2
-.weak _VECTOR_SOFT_IRQ
-.global _VECTOR_SOFT_IRQ
-_VECTOR_SOFT_IRQ:
-    la tp,VECTOR_SOFT_IRQ
-    jr tp
+    .align 2
+    .weak EXTI_IRQHandler
+    .type EXTI_IRQHandler,%function
+EXTI_IRQHandler:
+
+    SAVE_CONTEXT
+    SAVE_CSR_CONTEXT
+
+_IRQ:
+    /* get irq */
+    la t0,plic_irq_table
+    li t1,0x00008E64        /* t1: irq num */
+    lw t1,0(t1)
+    slli t2, t1, 2
+    add t0, t0, t2
+    lw t2, (t0)
+    sw t1,39*REGBYTES(sp)
+    ENABLE_MIE
+
+    jalr t2         /* jump to irq */
+
+    DISABLE_MIE
+    /* clear pending mask*/
+    lw t1,39*REGBYTES(sp)
+    li t0,0x00008E64
+    sw t1,(t0)
+    nop
+    nop
+    /*enter new irq or recover */
+    lw t1,4(t0)
+    bgt t1,x0,_IRQ
+    /*enable pri mie */
+    li t0,MSTATUS_PRV1
+    csrs mstatus,t0
+
+    RESTORE_CSR_CONTEXT
+    RESTORE_CONTEXT
+    mret
 
 .align  2
-.weak _VECTOR_SYSTICK_IRQ
-.global _VECTOR_SYSTICK_IRQ
-_VECTOR_SYSTICK_IRQ:
-    la tp,VECTOR_SYSTICK_IRQ
-    jr tp
+.global wakeup_recover
+wakeup_recover:
+    /* Disable Global Interrupt */
+    csrc CSR_MSTATUS, MSTATUS_MIE
+    /* Disable all interrupts controlled by CSR MIE */
+    csrw CSR_MIE, 0x0
+
+    /* Initialize GP */
+    .option push
+    .option norelax
+    la gp, __global_pointer$
+    .option pop
+
+    /*
+     * Set Trap Entry MTVEC to trap_entry
+     */
+    la t0, VECTOR_IRQ_TABLE
+    ori t0,t0,1 //=1:vector mode =0:direct mode
+    csrw CSR_MTVEC, t0
+
+    /* ===== Startup Stage 2 ===== */
+
+    /* Enable FPU */
+    li t0, MSTATUS_FS
+    csrs mstatus, t0
+    csrw fcsr, x0
+
+    li t0, 0x00000800
+    csrs CSR_MIE,t0
+
+    /*mstatus: mie*/
+    li t0, MSTATUS_MIE
+    csrs mstatus, t0
+
+    call SYSCTRL_SystemInit
+
+    /* Reset malloc heap state before bt_lpm_recover:
+     * Non-retention RAM heap is lost during sleep,
+     * but __malloc_free_list and curbrk survive in retention_ram.
+     * Clear the free list and reset heap pointer to start. */
+    call heap_reset_for_wakeup
+
+    la t0,bt_lpm_recover
+    jalr t0
+
+    call __load_data_bss
+    call __libc_init_array
+
+    li t1,0x9f1c
+    lw t2,0(t1)
+    srli t3,t2,16   /*wakeup mode */
+    beqz t3,_flash_start
+    li t3,0xffff
+    and t2,t2,t3
+    slli t2,t2,2
+    beqz t2,_flash_start
+    mv   sp,t2
+    lw   s0, 0(sp)
+    lw   s1, 4(sp)
+    lw   s2, 8(sp)
+    lw   s3,12(sp)
+    lw   s4,16(sp)
+    lw   s5,20(sp)
+    lw   s6,24(sp)
+    lw   s7,28(sp)
+    lw   s8,32(sp)
+    lw   s9,36(sp)
+    lw  s10,40(sp)
+    lw  s11,44(sp)
+    lw   ra,48(sp)
+    addi  sp,sp,64
+    ret
+
+_flash_start:
+    la a0,flash_start
+    jr a0
 
 .align  2
-.weak _VECTOR_RTC_IRQ
-.global _VECTOR_RTC_IRQ
-_VECTOR_RTC_IRQ:
-    la tp,VECTOR_RTC_IRQ
-    jr tp
+.weak   bt_lpm_recover
+bt_lpm_recover:
+    ret
 
-.align  2
-.weak _VECTOR_QSPI2_IRQ
-.global _VECTOR_QSPI2_IRQ
-_VECTOR_QSPI2_IRQ:
-    la tp,VECTOR_QSPI2_IRQ
-    jr tp
+.type .brk,%function
+.brk:
+    SAVE_CONTEXT
+    la t0,brk_table
+    li t1,0x00008e80    /*get brk num */
+    lw t1,0(t1)
+    andi t1,t1,7
+    slli t2,t1,2
+    add t0,t0,t2
+    lw t2,(t0)
 
-.align  2
-.weak _VECTOR_QSPI1_IRQ
-.global _VECTOR_QSPI1_IRQ
-_VECTOR_QSPI1_IRQ:
-    la tp,VECTOR_QSPI1_IRQ
-    jr tp
+    jalr t2
 
-.align  2
-.weak _VECTOR_QSPI_IRQ
-.global _VECTOR_QSPI_IRQ
-_VECTOR_QSPI_IRQ:
-    la tp,VECTOR_QSPI_IRQ
-    jr tp
+    li t1,0x00008e80    /*clear brk num */
+    sw x0,0(t1)
 
-.align  2
-.weak _VECTOR_UARTA_IRQ
-.global _VECTOR_UARTA_IRQ
-_VECTOR_UARTA_IRQ:
-    la tp,VECTOR_UARTA_IRQ
-    jr tp
-
-.align  2
-.weak _VECTOR_SADC_IRQ
-.global _VECTOR_SADC_IRQ
-_VECTOR_SADC_IRQ:
-    la tp,VECTOR_SADC_IRQ
-    jr tp
-
-.align  2
-.weak _VECTOR_GDAC_IRQ
-.global _VECTOR_GDAC_IRQ
-_VECTOR_GDAC_IRQ:
-    la tp,VECTOR_GDAC_IRQ
-    jr tp
-
-.align  2
-.weak _VECTOR_TIMERGR0_IRQ
-.global _VECTOR_TIMERGR0_IRQ
-_VECTOR_TIMERGR0_IRQ:
-    la tp,VECTOR_TIMERGR0_IRQ
-    jr tp
-
-.align  2
-.weak _VECTOR_WDT_IRQ
-.global _VECTOR_WDT_IRQ
-_VECTOR_WDT_IRQ:
-    la tp,VECTOR_WDT_IRQ
-    jr tp
-
-.align  2
-.weak _VECTOR_SDMA_IRQ
-.global _VECTOR_SDMA_IRQ
-_VECTOR_SDMA_IRQ:
-    la tp,VECTOR_SDMA_IRQ
-    jr tp
-
-.align  2
-.weak  _VECTOR_GPIO_IRQ
-.global _VECTOR_GPIO_IRQ
-_VECTOR_GPIO_IRQ:
-    la tp,VECTOR_GPIO_IRQ
-    jr tp
-
-.align  2
-.weak _VECTOR_MIC_IRQ
-.global _VECTOR_MIC_IRQ
-_VECTOR_MIC_IRQ:
-    la tp,VECTOR_MIC_IRQ
-    jr tp
-
-.align  2
-.weak _VECTOR_AES_IRQ
-.global _VECTOR_AES_IRQ
-_VECTOR_AES_IRQ:
-    la tp,VECTOR_AES_IRQ
-    jr tp
-
-.align  2
-.weak _VECTOR_USB_IRQ
-.global _VECTOR_USB_IRQ
-_VECTOR_USB_IRQ:
-    la tp,VECTOR_USB_IRQ
-    jr tp
-
-.align  2
-.weak  _VECTOR_BTTIMER_IRQ
-.global _VECTOR_BTTIMER_IRQ
-_VECTOR_BTTIMER_IRQ:
-    la tp,VECTOR_BTTIMER_IRQ
-    jr tp
-
-.align  2
-.weak _VECTOR_BT_IRQ
-.global _VECTOR_BT_IRQ
-_VECTOR_BT_IRQ:
-    la tp,VECTOR_BT_IRQ
-    jr tp
+    RESTORE_CONTEXT
+    dret
 
 .align  2
 .weak   Default_Handler

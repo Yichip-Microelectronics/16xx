@@ -83,6 +83,7 @@ void SYSCTRL_SystemInit(void);
 void SYSCTRL_SoftReset(void);
 uint8_t SYSCTRL_GetSysEvent(void);
 void SYSCTRL_ClearSysEvent(uint8_t event);
+void SYSCTRL_IceCmd(FunctionalState newState);
 #ifdef __cplusplus
 }
 #endif

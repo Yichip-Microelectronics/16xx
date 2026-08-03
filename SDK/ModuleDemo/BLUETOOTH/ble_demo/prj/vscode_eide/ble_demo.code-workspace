@@ -1,0 +1,71 @@
+{
+    "folders": [
+        {
+            "path": "."
+        },
+        {
+            "path": "../../../../../Libraries"
+        },
+        {
+            "path": "../../user"
+        }
+    ],
+    "settings": {
+        "files.autoGuessEncoding": true,
+        "C_Cpp.default.configurationProvider": "cl.eide",
+        "C_Cpp.errorSquiggles": "disabled",
+        "files.associations": {
+            "*.lis": "asm-markdown-codeblock",
+            "*.py": "python",
+            "*.prog": "asm-list-file",
+            ".eideignore": "ignore",
+            "*.a51": "a51",
+            "*.h": "c",
+            "*.c": "c",
+            "*.hxx": "cpp",
+            "*.hpp": "cpp",
+            "*.c++": "cpp",
+            "*.cpp": "cpp",
+            "*.cxx": "cpp",
+            "*.cc": "cpp",
+            "cstdlib": "c",
+            "cmath": "c",
+            "exception": "c",
+            "type_traits": "c",
+            "typeinfo": "c",
+            "cfloat": "c",
+            "climits": "c",
+            "cstdarg": "c",
+            "cstddef": "c",
+            "cstdint": "c",
+            "cstdio": "c",
+            "cstring": "c",
+            "cwchar": "c",
+            "cwctype": "c",
+            "limits": "c",
+            "new": "c",
+            "cstdbool": "c",
+            "xtr1common": "c"
+        },
+        "[yaml]": {
+            "editor.insertSpaces": true,
+            "editor.tabSize": 4,
+            "editor.autoIndent": "advanced"
+        }
+    },
+    "extensions": {
+        "recommendations": [
+            "cl.eide",
+            "keroc.hex-fmt",
+            "xiaoyongdong.srecord",
+            "hars.cppsnippets",
+            "zixuanwang.linkerscript",
+            "redhat.vscode-yaml",
+            "IBM.output-colorizer",
+            "cschlosser.doxdocgen",
+            "ms-vscode.vscode-serial-monitor",
+            "ms-vscode.cpptools",
+            "shardulm94.trailing-spaces"
+        ]
+    }
+}

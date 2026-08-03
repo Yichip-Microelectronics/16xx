@@ -159,7 +159,7 @@ void SADC_InputDiv2(FunctionalState state)
  */
 void SADC_SetRegularChannel(uint16_t rlist)
 {
-    if (rlist==1<<SADC_CHANNEL_VBAT)   //only vbat
+    if (rlist==1<<SADC_CHANNEL_VBAT || rlist==1<<SADC_CHANNEL_VDCDC)   //only vbat or vdcdc
     {
         RF_GPADC->gpadc_cfg3.bit.rg_gpadc_sar_vref_sel=0;
         RF_GPADC->gpadc_cfg4.bit.rg_gpadc_invref_mode=1;
@@ -427,7 +427,7 @@ uint16_t SADC_CalculateVoltage(SADC_ChxEnum ch,uint16_t adcValue)
     int cali_voltage_high = 0;  /*高校准电压值*/
     int cali_value_low = 0;     /*低校准电压对应的校准值*/
     int cali_value_high = 0;    /*高校准电压对应的校准值*/
-    if(ch == SADC_CHANNEL_VBAT)
+    if(ch == SADC_CHANNEL_VBAT || ch == SADC_CHANNEL_VDCDC)
     {
         cali_voltage_low = 2800;
         cali_voltage_high = 4800;

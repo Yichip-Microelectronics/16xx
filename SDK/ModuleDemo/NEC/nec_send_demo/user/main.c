@@ -268,7 +268,7 @@ _interrupt void VECTOR_SYSTICK_IRQ(void)
 
 void NEC_IRQHandler(void)
 {
-    uint8_t necStatus=NEC_GeIrqStatus();
+    uint8_t necStatus=NEC_GetIrqStatus();
     if(necStatus&(NEC_IRQ_DONE))
     {
         #if (NEC_USE_EXTERNAL_DRIVE)

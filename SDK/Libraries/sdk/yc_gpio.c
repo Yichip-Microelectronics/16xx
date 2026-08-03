@@ -44,7 +44,17 @@ void GPIO_DeInit(void)
  */
 _ramcode void GPIO_Config(GPIO_NumEnum gpiox, GPIO_ModeEnum func)
 {
-
+    if(gpiox==GPIO_6)
+    {
+        if((func&0xc0)==0x40)
+        {
+            CORE_USB->host_md.bit.dp_pu1p5=1;
+        }
+        else
+        {
+            CORE_USB->host_md.bit.dp_pu1p5=0;
+        }
+    }
     CORE_GPIO->gpio_cfg[gpiox] = func;
 }
 

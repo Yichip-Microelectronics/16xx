@@ -20,7 +20,9 @@ extern "C"
  #define SADC_REMOVE_NUM            6
  #define SADC_GPIO_RANGE_3V3        0
  #define SADC_GPIO_RANGE_1V8        1
+ #ifndef SADC_GPIO_RANGE
  #define SADC_GPIO_RANGE            SADC_GPIO_RANGE_1V8
+ #endif
 
  #define SADC_CLK_1M                (SYSCTRL_GetSystemClk()/1000000-1)
  #define SADC_CLK_24M               (SYSCTRL_GetSystemClk()/24000000-1)

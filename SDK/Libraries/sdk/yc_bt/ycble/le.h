@@ -2,11 +2,30 @@
 #define __LE_H__
 // #include "glibc.h"
 #include "rf.h"
+/* ============================ multi-device support ============================ */
+#define MAX_DEV 1
+typedef uint8_t dev_handle_t;
 #include "BLE_L2capSmp.h"
-#include "BLE_L2capATT.h"
 #define TX_SHIFT			4
 
+#define __LEATTFN_  void
+#define __LEATTFN_WEAK_ __attribute__((weak)) __LEATTFN_
+typedef __LEATTFN_ le_att_fn(dev_handle_t dev_handle,uint8_t *rx);
+typedef struct
+{
+    uint8_t bde_op;
+    le_att_fn *bde_fn;
+}le_att_entry;
+
+// Protocol layer macros: get ct/dev by handle
+#define GET_CT(h)   (devs[h].ct)
+#define GET_DEV(h)  (&devs[h])
+
+#define TX_SHIFT			4
 #define TRANSMIT_WINDOW_DELAY	DSLOT
+
+#define PUBLIC_ADDR_TYPE (0x00)
+#define RANDOM_ADDR_TYPE (0x01)
 
 #define LE_ADV_IND               0
 #define LE_ADV_DIRECT_IND        1
@@ -145,6 +164,9 @@
 
 #define BONDING_FLAG	1
 
+// auth_req 中的 SC 标志位 (bit 3)
+#define AUTH_REQ_SC_FLAG    0x08
+
 #define KEYDIST_ENCKEY		1
 #define KEYDIST_IDKEY		2
 #define KEYDIST_SIGNKEY		4
@@ -217,7 +239,7 @@
 
 
 #define UUID_SERVICE_GENERIC_ACCESS           0x1800
-#define UUID_SERVICE_GENERIC_ATT           0x1801
+#define UUID_SERVICE_GENERIC_ATT           	  0x1801
 #define UUID_IMMEDIATE_ALERT  0x1802
 #define UUID_LINK_LOSS        0x1803
 #define UUID_TX_POWER         0x1804
@@ -272,6 +294,7 @@
 #define ISR_WAIT_RXSYNC	2
 #define ISR_WAIT_RXDATA		3
 
+#define STATE_IDLE				0
 #define STATE_ADV				1
 #define STATE_SCAN				2
 #define STATE_CONN_IND			3
@@ -293,6 +316,7 @@
 #define CONN_TERMINATE			(1 << 7)
 #define CONN_ENC				(1 << 8)
 #define CONN_START_ENC			(1 << 9)
+#define CONN_CONFIRM_SUCCESS	(1 << 10)
 
 #define TYPE_ENC				0x10000
 
@@ -306,18 +330,18 @@
 #define RXSTA_DATA              2
 #define RXSTA_OLD               4
 
-
-
-typedef struct {
-	word uuid;
-	byte len;
-	byte dat[30];
-} att_record;
-
 typedef struct {
     word start;
 	word end;
-	word uuid;
+    union
+    {
+        struct
+        {
+            uint32_t uuid :31;
+            uint32_t type :1;   //0: pointer, 1: value
+        };
+        uint8_t *p_uuid;
+    };
 } serv_record;
 
 typedef struct {
@@ -327,12 +351,29 @@ typedef struct {
 	word MaxTxTime;	// 2120 µs;
 } len_conf;
 
-//广播使用的参数
+typedef struct
+{
+    uint16_t handle;
+    uint16_t total_len;
+    uint8_t *buffer;
+    uint16_t buffer_size;
+} prepare_write_cache_ctx;
+
+
 typedef struct {
-	uint8_t bdaddr[6];
+    uint16_t mtu,mtu_set,mtu_rx;
+    uint16_t enc_handle;
+    byte *att_tmp;
+    prepare_write_cache_ctx prepare_write_cache;
+    uint8_t prepare_write_pending;
+}att_para_ctx;
+
+typedef struct leconn_s leconn;  // forward declaration
+typedef struct {
+	byte bdaddr[6];
 	union {
-	uint32_t adv_event_interval;
-    uint32_t scan_interval;
+		uint32_t adv_event_interval;
+		uint32_t scan_interval;
 	} evt_interval;
 	union {
 		uint16_t adv_interval;
@@ -343,14 +384,34 @@ typedef struct {
 	uint8_t adv_type;
 	uint8_t own_addr_type;
 	uint8_t peer_addr_type;
-	uint8_t peer_addr[6];
-	uint8_t adv_channel_map;	//disable:0  enable set bit 1:bit0:ch37, bit1:ch38, bit2:ch39
 	uint8_t adv_data[32];
 	uint8_t scan_rsp_data[32];
-} Ble_ADVParamStru;
+
+	byte features[8];
+	byte version[5];
+	smp_cap smp;
+
+    byte conn_mac[6];
+    union{
+        byte advch;
+        byte scanch;
+    };
+    void *sleeptimer;
+
+    int cmds[80];           // 50 -> 80
+    byte cwptr;
+    byte crptr;
+
+    volatile byte state;    // 0 = idle
+    byte acked;
+
+    // ---- multi-device ----
+    leconn *ct;             // connection pointer (malloc when connected)
+    dev_handle_t dhandle;   // this dev's handle
+} ledevice;
 
 //连接使用的参数
-typedef struct {
+typedef struct leconn_s {
 	// conn_ind packet, total 34 bytes
 	byte own_addr[6];
 	byte peer_addr[6];
@@ -367,16 +428,19 @@ typedef struct {
 
 	// connection information
 	uint anchor;
+	uint old_anchor;
 	uint sync_ts;
 	uint rxcnt;
 	uint mic;
-	word evcnt;
-	word rxwin;
+	uint rxwin;
+	uint16_t evcnt;
+	uint16_t old_evcnt;
 	word instant;
 	word status;
 	byte *txptr;
 	byte key[16];			// should be 32bit aligned
 	byte ltk[16];
+	uint8_t remote_irk[16];
 	byte rand[16];
 	byte rconfirm[16];
 	byte rctr[5];
@@ -385,12 +449,12 @@ typedef struct {
 	byte mode;
 	byte used_ch;
 	byte hop;
+	uint8_t old_hop;
 	byte ch;
 	byte ivm[4];
 	byte ivs[4];
 	byte ediv[2];
-	smp_cap remote_smp;
-	smp_cap local_smp;
+	smp_cap smp;
 	len_conf own_len;
 	len_conf peer_len;
     byte l2cap_start;
@@ -398,48 +462,101 @@ typedef struct {
     byte signaling_identifier;
     byte lpm_mult; //bit7:enable bit6~0:num
     byte rxpktsta;
-	ATT_MTU mtu;
-	att_record *att_list;
-	uint8_t att_size;
-	uint8_t *att_value;
+    word phy;
+
     byte b01[32];
     byte rfu:6;
     byte peer_addr_type:1;
     byte own_addr_type:1;
     byte att_status;
-    att_record *att_ptr;
+    struct ble_gatt_attr *att_ptr;
     smp_passkey_ctx *passkey_ctx;  // Passkey 上下文指针（配对时动态分配）
-} BLE_ConnParam;
+    smp_sc_ctx *sc_ctx;            // Secure Connection上下文指针（配对时动态分配）
+    byte md_max;      //一次最大MD处理次数
+    byte md_en;       //MD使能 bit0: tx MD  bit1: rx MD
 
+    byte miss;
 
+    int txqueue[50];
+    byte tqr;
+    byte tqw;
 
+    uint16_t l2cap_offset;
+    byte *p_l2cap;
 
-extern BLE_ConnParam *ct;
-extern BLE_ConnParam conn, mconn;
-extern Ble_ADVParamStru adv_param;
-extern byte tx_buf[256];
-extern byte rxbuf[512];
-extern int evt_queue[50], txqueue[50];
-extern const byte adv_data[];
+    byte *txbuf;
+    byte *next_txbuf;
 
+    att_para_ctx att_para;
+
+    int8_t rssi_arr[16];
+    uint8_t rssi_index;
+
+} leconn;
+
+extern LPM_RETENTION leconn g_conn;
+extern LPM_RETENTION leconn *ct;
+extern ledevice devs[MAX_DEV];
+extern LPM_RETENTION uint8_t *txbuf, *next_txbuf;
+extern LPM_RETENTION ledevice *dev;
+extern LPM_RETENTION byte tx_buf[256];
+extern LPM_RETENTION byte rxbuf[512];
+extern LPM_RETENTION int txqueue[50];
+extern const uint8_t adv_data[];
+extern const uint16_t bt_lib_version;
 
 tmrtask *add_timeout_timer(uint timeout, void (*cb)(), int arg);
 byte *tx_alloc(int len);
-void tx_queue(int type, int len, byte *payload);
-void le_send_l2cap(word cid, word len, byte *p);
-void generate_sk(byte *skdm, byte *sdks);
-uint le_crypt(int enc, byte *ctr, word header, byte *pkt);
-void le_send_smp_encinfo();
-void le_lpm_enter(uint32_t wake_anchor);
+void tx_queue(leconn *ct, int type, int len, byte *payload);
+void le_send_l2cap(dev_handle_t dhandle, word cid, word len, byte *p);
+bool generate_sk(dev_handle_t dhandle, byte *skdm, byte *sdks);
+uint le_crypt(dev_handle_t dhandle, int enc, byte *ctr, word header, byte *pkt);
+void le_send_smp_encinfo(dev_handle_t dhandle);
 void le_wakeup();
-void putcmd(int cmd, byte *buf);
-void le_parse_ll(byte *p);
-void init_le_adv();
-void init_le_scan();
-void le_new_connection(int master);
-void le_parse_llid(byte *recv);
+int putcmd(ledevice *dev, int cmd, uint8_t *buf);
+void le_parse_ll(dev_handle_t dhandle, uint8_t *p);
+void init_le();
+void le_adv(void);
+/*********************************************
+ * FunctionName : le_context_init
+ * Description  : 初始化连接上下文，state为ENABLE时分配内存，DISABLE时释放内存
+ * Parameters   : state : ENABLE or DISABLE
+ * Returns      : none
+**********************************************/
+void le_context_init(uint8_t state);
+void le_new_connection(dev_handle_t dhandle, int master);
+void le_parse_llid(dev_handle_t dhandle, uint8_t *recv);
 
 // Passkey 相关函数
-void smp_passkey_cleanup(void);
-int smp_passkey_wait_input(void);
+void smp_passkey_cleanup(dev_handle_t dhandle);
+smp_passkey_ctx* smp_passkey_alloc(void);
+
+// Secure Connection 相关函数
+smp_sc_ctx* smp_sc_alloc(void);
+void smp_sc_free(smp_sc_ctx *ctx);
+void smp_sc_cleanup(dev_handle_t dhandle);
+void sc_register_nc_confirm_cb(sc_nc_confirm_cb cb);
+void sc_init(void);
+int sc_get_pairing_method(byte initiator_io_cap, byte responder_io_cap);
+void sc_send_public_key(dev_handle_t dhandle);
+void sc_handle_public_key(dev_handle_t dhandle, byte *rxp);
+void sc_handle_confirm_sc(dev_handle_t dhandle, byte *rxp);
+void sc_handle_random_sc(dev_handle_t dhandle, byte *rxp);
+void sc_handle_dhkey_check(dev_handle_t dhandle, byte *rxp);
+// SC Passkey Entry functions
+void sc_send_keypress_notification(dev_handle_t dhandle, byte type);
+int sc_passkey_get_role(dev_handle_t dhandle);
+void sc_passkey_display(dev_handle_t dhandle);
+void sc_passkey_wait_input(dev_handle_t dhandle);
+void sc_passkey_input_complete(dev_handle_t dhandle);
+void sc_send_passkey_confirm(dev_handle_t dhandle);
+
+void rtc_calibration();
+uint le_check_near_anchor(void);
+void rtc_calibration_init();
+/*********************************************
+ * Description  : 检查LE模式的休眠条件是否满足
+ * Returns      : false 表示无法休眠,true 表示可以休眠。
+**********************************************/
+bool LE_PrepareActionBeforeSleep(void);
 #endif

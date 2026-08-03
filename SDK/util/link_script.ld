@@ -10,9 +10,9 @@ ENTRY( _start )
 MEMORY
 {
     flash         (rxai!w) : ORIGIN = 0x01000000, LENGTH = 512K
-    retention_ram (wxa!ri) : ORIGIN = 0x10050, LENGTH = 4K-0x50
-    ram           (wxa!ri) : ORIGIN = 0x11000, LENGTH = 48K
-    ramcode       (rxai!w) : ORIGIN = 0x1d000, LENGTH = 28k
+    retention_ram (wxa!ri) : ORIGIN = 0x10050, LENGTH = 8K-0x50
+    ram           (wxa!ri) : ORIGIN = 0x12000, LENGTH = 57K
+    ramcode       (rxai!w) : ORIGIN = 0x20400, LENGTH = 15k
 }
 
 
@@ -32,9 +32,8 @@ SECTIONS
         PROVIDE(_sramcode = .);
         KEEP(*(.vtable))
         KEEP(*trap_entry*.o)
-        . = (. + 1023) / 1024 * 1024 ;
-        KEEP(*trap_interrupt_gcc*.o)
         *(.ramcode*)
+        *(._SECTION_RAM_CODE_DEFINE*)
         . = ALIGN(4);
         PROVIDE(_eramcode = .);
     } >ramcode AT>flash
@@ -115,7 +114,14 @@ SECTIONS
     {
         . = ALIGN(4);
         PROVIDE(_sdata_retention = .);
+        _fixed = .;
+        *(.fixed)
         *(lpm_retention)
+        *(.__bdfunc__*)
+        *(.__bdpara__*)
+        *(.sbss.__malloc*)
+        *(.sdata._impure_ptr)
+        *(.data.impure_data)
         . = ALIGN(4);
         PROVIDE(_edata_retention = .);
     } >retention_ram AT>flash

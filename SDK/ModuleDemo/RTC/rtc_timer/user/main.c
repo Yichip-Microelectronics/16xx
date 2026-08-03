@@ -92,13 +92,6 @@ void wakeup_FlagAnalysis(void)
     }
 }
 
-void printport_deinit(void)
-{
-    UART_DeInit(PRINT_PORT);
-    GPIO_Config(PRINT_TX_IO_PIN,GPIO_MODE_HI_Z);
-    GPIO_Config(PRINT_RX_IO_PIN,GPIO_MODE_HI_Z);
-}
-
 void LPM_prepareActionBeforeSleep(LPM_ModeEnum sleepLevel)
 {
     /*
@@ -106,23 +99,16 @@ void LPM_prepareActionBeforeSleep(LPM_ModeEnum sleepLevel)
     并根据外围电路将睡眠期间不使用的GPIO配置成GPIO_MODE_HI_Z
     */
 
+    __disable_irq();
     LpmRecoverStruct->rg_lpm_ldo_dig_retmem_vsel.bit.sleep=5;
-    LpmRecoverStruct->rg_lpm_ldo_dig_lpm_vosel.bit.sleep=0;
+    LpmRecoverStruct->rg_lpm_ldo_dig_lpm_vosel.bit.sleep=2;
 
     /*唤醒响应时间调整*/
-    LPM_CONTROL->digldo_cnt.bit.digldo_cnt=0x0;
-    LPM_CONTROL->digldo_cnt.bit.rco_cnt=0x0;
-    LPM_CONTROL->xtal_cnt.reg=0x0;
-    LPM_CONTROL->exen_cnt.reg=0x0;
-    while(UART_GetTxCount(PRINT_PORT)>0);
     printport_deinit();
 }
 
-extern void __libc_init_array(void);
 void LPM_postActionWakeup(LPM_ModeEnum sleepLevel)
 {
-    __libc_init_array();
-    SYSCTRL_SystemInit();
     SYSCTRL_ChipInit();
     printport_init();
 }

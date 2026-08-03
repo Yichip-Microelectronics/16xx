@@ -15,7 +15,7 @@ int main(void)
   * @param  None
   * @retval None
   */
-_interrupt void SYSTICK_IRQHandler(void)
+_interrupt void VECTOR_SYSTICK_IRQ(void)
 {
     yc_log("SYSTICK_IRQHandler");
 

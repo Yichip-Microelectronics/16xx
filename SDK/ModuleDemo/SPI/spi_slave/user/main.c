@@ -58,7 +58,7 @@ int main(void)
     SYSCTRL_ChipInit();
     printport_init();
     SYSCTRL_ClkEn(CLK_SPI,ENABLE);
-    yc_log("spi test salve");
+    yc_log("spi test slave");
 
     W25Q16_Gpioinit();
     HSPI_DmaEnableCmd(ENABLE);
@@ -67,7 +67,7 @@ int main(void)
     HSPI_SlaveEnableCmd(ENABLE);
     HSPI_SendAndReceiveData(write_test_buf,TEST_SIZE,read_test_buf,TEST_SIZE);
     printv("data",read_test_buf,TEST_SIZE);
-    yc_log("salve send,salve done");
+    yc_log("slave send,slave done");
     while(1)
     {
     }

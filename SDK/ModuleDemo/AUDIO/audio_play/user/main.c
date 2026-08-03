@@ -24,6 +24,7 @@ volatile uint8_t dac_status = DAC_STATUS_PLAY_START;
 
 void DAC_GpioInit(void)
 {
+    GPIO_Config(GPIO_DAC_SD_PIN,GPIO_MODE_OUT_HIGH);
     GPIO_Config(GPIO_DAC_OUT_P_PIN, GPIO_MODE_DAC_OUT);
     GPIO_Config(GPIO_DAC_OUT_N_PIN, GPIO_MODE_DAC_OUT);
 }

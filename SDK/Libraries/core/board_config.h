@@ -6,6 +6,9 @@ Date         : 2022/12/03
 Description  : Development board peripheral interface definition
 */
 
+#ifdef USE_APP_BOARD_CONFIG
+#include "app_board_config.h"
+#else
 #ifndef __BOARD_CONFIG_H__
 #define __BOARD_CONFIG_H__
 
@@ -19,23 +22,21 @@ Description  : Development board peripheral interface definition
 /*Board define*/
 #define BOARD_2020_022_1508FPGA_V_1_2       (0x000102030405)
 #define BOARD_2025_223_YC1161AA_EVB_V_1_0   (0x0c100f0d0b0e)
-#define BOARD_2025_298_YC1615AA_EVB_V_1_1   (0x0e0a08100f05)
-
+#define BOARD_2025_298_YC1615AA_EVB_V_1_1   (0x0e0a08100f0580)
+#define BOARD_2025_298_YC1610_9_EVB_V1_2    (0x0e0a08100f0581)
+#define BOARD_2026_036_YC1619_remoteV1_0    (0x0e0c0d0f100b80)
+#define BOARD_2026_036_YC1613_9_EVB_V1_1    (0x0e0c0d0f100b81)
+#define BOARD_2025_306_YC1614AA_EVB_V1_0    (0x0d0b0c0e0f80)
+#define BOARD_2025_306_YC1600_9_EVB_V1_1    (0x0d0b0c0e0f81)
+#define BOARD_2026_001_YC1611_7_EVB_V1_0    (0x1b1d1e24)
+#define BOARD_2026_100_YC1630_7_EVB_V1_0    (0x0c0b0d0e0f)
 
 #ifndef BOARD_TYPE
-#define BOARD_TYPE                          BOARD_2025_223_YC1161AA_EVB_V_1_0
-#endif
-
-#if BOARD_TYPE==BOARD_2025_298_YC1615AA_EVB_V_1_1
-#define PWR_USE_BUCK                        (1)
+#define BOARD_TYPE                          BOARD_2025_298_YC1615AA_EVB_V_1_1
 #endif
 
 #ifndef SYS_CLK_SOURCE
 #define SYS_CLK_SOURCE                      SYS_CLKSEL_DPLL
-#endif
-
-#ifndef SYS_CLK_DIV
-#define SYS_CLK_DIV                         (0)
 #endif
 
 #ifndef NO_CRYSTAL
@@ -46,12 +47,24 @@ Description  : Development board peripheral interface definition
 #define PWR_USE_BUCK                        (0)
 #endif
 
+/*
+SYS_CLK_DIV(系统时钟分频系数)需要与MCU_CLK(CPU主频)适配，系统时钟计算公式为：MCU_CLK/(SYS_CLK_DIV+1)，系统时钟必须小于等于96MHz。
+提高CPU主频后，如果程序卡死在SYSCTRL_ClkInit()函数的_ASSERT语句中，需增大SYS_CLK_DIV，确保系统时钟小于等于96MHz。
+*/
+#ifndef SYS_CLK_DIV
+#define SYS_CLK_DIV                         (0)
+#endif
+
 #ifndef MCU_DPLL_CLK_SEL
 #define MCU_DPLL_CLK_SEL                    DPLL_CLKSEL_48MHZ
 #endif
 
 #ifndef FLASH_CLK_SEL
 #define FLASH_CLK_SEL                       DPLL_CLKSEL_48MHZ
+#endif
+
+#ifndef BT_EN
+#define BT_EN                               (0)
 #endif
 
 
@@ -75,6 +88,8 @@ extern "C" {
 
 /*led*/
 #define GPIO_LED_PIN                        GPIO_7
+
+#define NO_CRYSTAL_GPIO                     GPIO_7
 
 /*GPIO IRQ*/
 #define GPIO_HIGH_IRQ_PIN                   GPIO_21
@@ -120,6 +135,7 @@ extern "C" {
 #define GPIO_PWM3_PIN                       GPIO_27
 
 /*DAC*/
+#define GPIO_DAC_SD_PIN                     GPIO_37
 #define GPIO_DAC_OUT_P_PIN                  GPIO_24
 #define GPIO_DAC_OUT_N_PIN                  GPIO_25
 
@@ -164,7 +180,7 @@ extern "C" {
 
 
 
-#elif(BOARD_TYPE == BOARD_2025_298_YC1615AA_EVB_V_1_1)
+#elif(BOARD_TYPE == BOARD_2025_298_YC1615AA_EVB_V_1_1 || BOARD_TYPE == BOARD_2025_298_YC1610_9_EVB_V1_2)
 
 #define RC_CLK_SOURCE                       (24000000) /*RC时钟定义*/
 #define EXTERNAL_CRYSTAL                    (24000000) /*外部晶体时钟定义*/
@@ -174,21 +190,23 @@ extern "C" {
 /*Print Port*/
 #define PRINT_PORT                          CORE_UARTA
 #define PRINT_IRQ_PORT                      UARTA_IRQn
-#define PRINT_BAUD                          (921600)
+#define PRINT_BAUD                          (2000000)
 #define PRINT_RX_IO_PIN                     GPIO_11
 #define PRINT_TX_IO_PIN                     GPIO_4
 
 /*led*/
 #define GPIO_LED_PIN                        GPIO_22
 
+#define NO_CRYSTAL_GPIO                     GPIO_9
+
 /*GPIO IRQ*/
 #define GPIO_HIGH_IRQ_PIN                   GPIO_0
 #define GPIO_LOW_IRQ_PIN                    GPIO_1
 #define GPIO_RISING_IRQ_PIN                 GPIO_2
 #define GPIO_FALL_IRQ_PIN                   GPIO_3
-#define GPIO_RISING_FALL_IRQ_PIN            GPIO_11
+#define GPIO_RISING_FALL_IRQ_PIN            GPIO_32
 
-#define GPIO_FREQUENCY_CAPTURE_PIN          GPIO_11
+#define GPIO_FREQUENCY_CAPTURE_PIN          GPIO_32
 
 /*SPI*/
 #define SPI_NCS_PIN                         GPIO_24
@@ -220,12 +238,13 @@ extern "C" {
 /*PWM*/
 #define GPIO_PWM0_PIN                       GPIO_24
 #define GPIO_PWM1_PIN                       GPIO_25
-#define GPIO_PWM2_PIN                       GPIO_26
-#define GPIO_PWM3_PIN                       GPIO_27
+#define GPIO_PWM2_PIN                       GPIO_18
+#define GPIO_PWM3_PIN                       GPIO_19
 
 
 /*DAC*/
-#define GPIO_DAC_OUT_P_PIN                  GPIO_30
+#define GPIO_DAC_SD_PIN                     GPIO_30
+#define GPIO_DAC_OUT_P_PIN                  GPIO_28
 #define GPIO_DAC_OUT_N_PIN                  GPIO_29
 
 /*PDM MIC*/
@@ -233,30 +252,34 @@ extern "C" {
 #define GPIO_PDM_DATA_PIN                   GPIO_23
 
 /*ISO7816*/
-#define UART_7816_RST_IO                    GPIO_34
-#define UART_7816_DATA_IO                   GPIO_29
+#define UART_7816_RST_IO                    GPIO_24
+#define UART_7816_DATA_IO                   GPIO_23
 #define UART_7816_CLK_IO                    GPIO_30
 
 #define UART_7816_DETECT_IO                 GPIO_32
-#define UART_7816_CARD_3V3                  GPIO_23
+#define UART_7816_CARD_3V3                  GPIO_21
 #define UART_7816_CLK_TIM                   TIM6
-#define UART_7816_BAUD                      (12800)
+#define UART_7816_BAUD                      (3226)
 
 
 /*  YC_ST7735S IO  */
 #define YC_ST7735S_IO_RST                   GPIO_18
 #define YC_ST7735S_IO_RS                    GPIO_19          //低电平：寄存器    高电平：数据
 #define YC_ST7735S_IO_LED                   GPIO_20         //背光控制， 高电平点亮，低电平灭
-#define YC_ST7735S_IO_CLK                   GPIO_35
-#define YC_ST7735S_IO_SDI                   GPIO_36
-#define YC_ST7735S_IO_CS                    GPIO_37
+#define YC_ST7735S_IO_CLK                   GPIO_21
+#define YC_ST7735S_IO_SDI                   GPIO_22
+#define YC_ST7735S_IO_CS                    GPIO_23
 
 /* IR/NEC (send and receive)*/
-#define NEC_PIN                             GPIO_5
+#define NEC_PIN                             GPIO_9
 
 /*key*/
 #define KEY1_PIN                            GPIO_29
+#define KEY2_PIN                            GPIO_30
 
+/*OTA*/
+#define USB_OTA_PIN                         GPIO_29
+#define BLE_OTA_PIN                         GPIO_30
 #elif(BOARD_TYPE == BOARD_2025_223_YC1161AA_EVB_V_1_0)
 #define RC_CLK_SOURCE                       (24000000) /*RC时钟定义*/
 #define EXTERNAL_CRYSTAL                    (24000000) /*外部晶体时钟定义*/
@@ -266,21 +289,23 @@ extern "C" {
 /*Print Port*/
 #define PRINT_PORT                          CORE_UARTA
 #define PRINT_IRQ_PORT                      UARTA_IRQn
-#define PRINT_BAUD                          (921600)
+#define PRINT_BAUD                          (2000000)
 #define PRINT_RX_IO_PIN                     GPIO_5
 #define PRINT_TX_IO_PIN                     GPIO_4
 
 /*led*/
 #define GPIO_LED_PIN                        GPIO_24
 
+#define NO_CRYSTAL_GPIO                     GPIO_8
+
 /*GPIO IRQ*/
 #define GPIO_HIGH_IRQ_PIN                   GPIO_0
 #define GPIO_LOW_IRQ_PIN                    GPIO_1
 #define GPIO_RISING_IRQ_PIN                 GPIO_2
 #define GPIO_FALL_IRQ_PIN                   GPIO_3
-#define GPIO_RISING_FALL_IRQ_PIN            GPIO_4
+#define GPIO_RISING_FALL_IRQ_PIN            GPIO_10
 
-#define GPIO_FREQUENCY_CAPTURE_PIN          GPIO_4
+#define GPIO_FREQUENCY_CAPTURE_PIN          GPIO_10
 
 /*SPI*/
 #define SPI_NCS_PIN                         GPIO_22
@@ -317,8 +342,9 @@ extern "C" {
 
 
 /*DAC*/
-#define GPIO_DAC_OUT_P_PIN                  GPIO_24
-#define GPIO_DAC_OUT_N_PIN                  GPIO_25
+#define GPIO_DAC_SD_PIN                     GPIO_37
+#define GPIO_DAC_OUT_P_PIN                  GPIO_32
+#define GPIO_DAC_OUT_N_PIN                  GPIO_29
 
 /*PDM MIC*/
 #define GPIO_PDM_CLK_PIN                    GPIO_22
@@ -348,11 +374,406 @@ extern "C" {
 
 /*key*/
 #define KEY1_PIN                            GPIO_27
+#define KEY2_PIN                            GPIO_34
+
+/*OTA*/
+#define USB_OTA_PIN                         GPIO_27
+#define BLE_OTA_PIN                         GPIO_34
+#elif(BOARD_TYPE == BOARD_2026_036_YC1619_remoteV1_0 || BOARD_TYPE == BOARD_2026_036_YC1613_9_EVB_V1_1)
+#define RC_CLK_SOURCE                       (24000000) /*RC时钟定义*/
+#define EXTERNAL_CRYSTAL                    (24000000) /*外部晶体时钟定义*/
+#define EXTERNAL_CRYSTAL_MS                 (24000)
+#define EXTERNAL_CRYSTAL_US                 (24)
+
+/*Print Port*/
+#define PRINT_PORT                          CORE_UARTA
+#define PRINT_IRQ_PORT                      UARTA_IRQn
+#define PRINT_BAUD                          (2000000)
+#define PRINT_RX_IO_PIN                     GPIO_21
+#define PRINT_TX_IO_PIN                     GPIO_22
+
+/*led*/
+#define GPIO_LED_PIN                        GPIO_4
+
+#define NO_CRYSTAL_GPIO                     GPIO_4
+
+/*GPIO IRQ*/
+#define GPIO_HIGH_IRQ_PIN                   GPIO_0
+#define GPIO_LOW_IRQ_PIN                    GPIO_9
+#define GPIO_RISING_IRQ_PIN                 GPIO_23
+#define GPIO_FALL_IRQ_PIN                   GPIO_24
+#define GPIO_RISING_FALL_IRQ_PIN            GPIO_4
+
+#define GPIO_FREQUENCY_CAPTURE_PIN          GPIO_4
+
+/*SPI*/
+#define SPI_NCS_PIN                         GPIO_14
+#define SPI_SCK_PIN                         GPIO_12
+#define SPI_MOSI_PIN                        GPIO_13
+#define SPI_MISO_PIN                        GPIO_15
+
+/*QSPI*/
+#define QSPI_PORT                           CORE_QSPI1
+#define QSPI_IRQ_PORT                       QSPI1_IRQn
+#define QSPI_NCS_PIN                        GPIO_14
+#define QSPI_SCK_PIN                        GPIO_12
+#define QSPI_IO0_PIN                        GPIO_13
+#define QSPI_IO1_PIN                        GPIO_15
+#define QSPI_IO2_PIN                        GPIO_16
+#define QSPI_IO3_PIN                        GPIO_11
+
+/*IIC*/
+#define IIC_PORT                            CORE_IIC
+#define IIC_IRQ_PORT                        IIC0_IRQn
+#define IIC_SCL_PIN                         GPIO_23
+#define IIC_SDA_PIN                         GPIO_24
+
+/*GPIO LONG PRESS RESET*/
+#define GPIO_Long_Press_Reset_1             GPIO_20
+// #define GPIO_Long_Press_Reset_2            GPIO_26
+// #define GPIO_Long_Press_Reset_3            GPIO_31
+
+/*PWM*/
+#define GPIO_PWM0_PIN                       GPIO_24
+#define GPIO_PWM1_PIN                       GPIO_25
+#define GPIO_PWM2_PIN                       GPIO_26
+#define GPIO_PWM3_PIN                       GPIO_27
+
+
+/*DAC*/
+#define GPIO_DAC_SD_PIN                     GPIO_26
+#define GPIO_DAC_OUT_P_PIN                  GPIO_24
+#define GPIO_DAC_OUT_N_PIN                  GPIO_25
+
+/*PDM MIC*/
+#define GPIO_PDM_CLK_PIN                    GPIO_22
+#define GPIO_PDM_DATA_PIN                   GPIO_23
+
+/*ISO7816*/
+#define UART_7816_RST_IO                    GPIO_34
+#define UART_7816_DATA_IO                   GPIO_29
+#define UART_7816_CLK_IO                    GPIO_30
+
+#define UART_7816_DETECT_IO                 GPIO_32
+#define UART_7816_CARD_3V3                  GPIO_23
+#define UART_7816_CLK_TIM                   TIM6
+#define UART_7816_BAUD                      (12800)
+
+
+/*  YC_ST7735S IO  */
+#define YC_ST7735S_IO_RST                   GPIO_18
+#define YC_ST7735S_IO_RS                    GPIO_19          //低电平：寄存器    高电平：数据
+#define YC_ST7735S_IO_LED                   GPIO_20         //背光控制， 高电平点亮，低电平灭
+#define YC_ST7735S_IO_CLK                   GPIO_23
+#define YC_ST7735S_IO_SDI                   GPIO_24
+#define YC_ST7735S_IO_CS                    GPIO_25
+
+/* IR/NEC (send and receive)*/
+#define NEC_PIN                             GPIO_9
+
+/*key*/
+#define KEY1_PIN                            GPIO_27
+/*OTA*/
+#define USB_OTA_PIN                         GPIO_23
+#define BLE_OTA_PIN                         GPIO_24
+#elif(BOARD_TYPE == BOARD_2025_306_YC1614AA_EVB_V1_0 || BOARD_TYPE == BOARD_2025_306_YC1600_9_EVB_V1_1)
+#define RC_CLK_SOURCE                       (24000000) /*RC时钟定义*/
+#define EXTERNAL_CRYSTAL                    (24000000) /*外部晶体时钟定义*/
+#define EXTERNAL_CRYSTAL_MS                 (24000)
+#define EXTERNAL_CRYSTAL_US                 (24)
+
+/*Print Port*/
+#define PRINT_PORT                          CORE_UARTA
+#define PRINT_IRQ_PORT                      UARTA_IRQn
+#define PRINT_BAUD                          (2000000)
+#define PRINT_RX_IO_PIN                     GPIO_5
+#define PRINT_TX_IO_PIN                     GPIO_4
+
+/*led*/
+#define GPIO_LED_PIN                        GPIO_25
+
+#define NO_CRYSTAL_GPIO                     GPIO_8
+
+/*GPIO IRQ*/
+#define GPIO_HIGH_IRQ_PIN                   GPIO_0
+#define GPIO_LOW_IRQ_PIN                    GPIO_1
+#define GPIO_RISING_IRQ_PIN                 GPIO_2
+#define GPIO_FALL_IRQ_PIN                   GPIO_3
+#define GPIO_RISING_FALL_IRQ_PIN            GPIO_9
+
+#define GPIO_FREQUENCY_CAPTURE_PIN          GPIO_9
+
+/*SPI*/
+#define SPI_NCS_PIN                         GPIO_13
+#define SPI_SCK_PIN                         GPIO_11
+#define SPI_MOSI_PIN                        GPIO_12
+#define SPI_MISO_PIN                        GPIO_14
+
+/*QSPI*/
+#define QSPI_PORT                           CORE_QSPI1
+#define QSPI_IRQ_PORT                       QSPI1_IRQn
+#define QSPI_NCS_PIN                        GPIO_13
+#define QSPI_SCK_PIN                        GPIO_11
+#define QSPI_IO0_PIN                        GPIO_12
+#define QSPI_IO1_PIN                        GPIO_14
+#define QSPI_IO2_PIN                        GPIO_15
+#define QSPI_IO3_PIN                        GPIO_15
+
+/*IIC*/
+#define IIC_PORT                            CORE_IIC
+#define IIC_IRQ_PORT                        IIC0_IRQn
+#define IIC_SCL_PIN                         GPIO_29
+#define IIC_SDA_PIN                         GPIO_37
+
+/*GPIO LONG PRESS RESET*/
+#define GPIO_Long_Press_Reset_1             GPIO_20
+// #define GPIO_Long_Press_Reset_2            GPIO_26
+// #define GPIO_Long_Press_Reset_3            GPIO_31
+
+/*PWM*/
+#define GPIO_PWM0_PIN                       GPIO_24
+#define GPIO_PWM1_PIN                       GPIO_25
+#define GPIO_PWM2_PIN                       GPIO_26
+#define GPIO_PWM3_PIN                       GPIO_27
+
+
+/*DAC*/
+#define GPIO_DAC_SD_PIN                     GPIO_30
+#define GPIO_DAC_OUT_P_PIN                  GPIO_32
+#define GPIO_DAC_OUT_N_PIN                  GPIO_29
+
+/*PDM MIC*/
+#define GPIO_PDM_CLK_PIN                    GPIO_22
+#define GPIO_PDM_DATA_PIN                   GPIO_23
+
+/*ISO7816*/
+#define UART_7816_RST_IO                    GPIO_34
+#define UART_7816_DATA_IO                   GPIO_29
+#define UART_7816_CLK_IO                    GPIO_30
+
+#define UART_7816_DETECT_IO                 GPIO_32
+#define UART_7816_CARD_3V3                  GPIO_23
+#define UART_7816_CLK_TIM                   TIM6
+#define UART_7816_BAUD                      (12800)
+
+
+/*  YC_ST7735S IO  */
+#define YC_ST7735S_IO_RST                   GPIO_18
+#define YC_ST7735S_IO_RS                    GPIO_19          //低电平：寄存器    高电平：数据
+#define YC_ST7735S_IO_LED                   GPIO_20         //背光控制， 高电平点亮，低电平灭
+#define YC_ST7735S_IO_CLK                   GPIO_35
+#define YC_ST7735S_IO_SDI                   GPIO_36
+#define YC_ST7735S_IO_CS                    GPIO_37
+
+/* IR/NEC (send and receive)*/
+#define NEC_PIN                             GPIO_9
+
+/*key*/
+#define KEY1_PIN                            GPIO_16
+#define KEY2_PIN                            GPIO_9
+
+/*OTA*/
+#define USB_OTA_PIN                         GPIO_16
+#define BLE_OTA_PIN                         GPIO_9
+
+#elif (BOARD_TYPE == BOARD_2026_001_YC1611_7_EVB_V1_0)
+#define RC_CLK_SOURCE                       (24000000)    /*RC时钟定义*/
+#define EXTERNAL_CRYSTAL                    (24000000) /*外部晶体时钟定义*/
+#define EXTERNAL_CRYSTAL_MS                 (24000)
+#define EXTERNAL_CRYSTAL_US                 (24)
+
+/*Print Port*/
+#define PRINT_PORT                          CORE_UARTA
+#define PRINT_IRQ_PORT                      UARTA_IRQn
+#define PRINT_BAUD                          (921600)
+#define PRINT_RX_IO_PIN                     GPIO_5
+#define PRINT_TX_IO_PIN                     GPIO_4
+
+/*led*/
+#define GPIO_LED_PIN                        GPIO_22
+
+/*GPIO IRQ*/
+#define GPIO_HIGH_IRQ_PIN                   GPIO_0
+#define GPIO_LOW_IRQ_PIN                    GPIO_1
+#define GPIO_RISING_IRQ_PIN                 GPIO_2
+#define GPIO_FALL_IRQ_PIN                   GPIO_3
+#define GPIO_RISING_FALL_IRQ_PIN            GPIO_11
+
+#define GPIO_FREQUENCY_CAPTURE_PIN          GPIO_11
+
+/*SPI*/
+#define SPI_NCS_PIN                         GPIO_24
+#define SPI_SCK_PIN                         GPIO_20
+#define SPI_MOSI_PIN                        GPIO_21
+#define SPI_MISO_PIN                        GPIO_23
+
+/*QSPI*/
+#define QSPI_PORT                           CORE_QSPI1
+#define QSPI_IRQ_PORT                       QSPI1_IRQn
+#define QSPI_NCS_PIN                        GPIO_21
+#define QSPI_SCK_PIN                        GPIO_23
+#define QSPI_IO0_PIN                        GPIO_24
+#define QSPI_IO1_PIN                        GPIO_20
+#define QSPI_IO2_PIN                        GPIO_33
+#define QSPI_IO3_PIN                        GPIO_22
+
+/*IIC*/
+#define IIC_PORT                            CORE_IIC
+#define IIC_IRQ_PORT                        IIC0_IRQn
+#define IIC_SCL_PIN                         GPIO_25
+#define IIC_SDA_PIN                         GPIO_26
+
+/*GPIO LONG PRESS RESET*/
+#define GPIO_Long_Press_Reset_1             GPIO_20
+// #define GPIO_Long_Press_Reset_2            GPIO_26
+// #define GPIO_Long_Press_Reset_3            GPIO_31
+
+/*PWM*/
+#define GPIO_PWM0_PIN                       GPIO_21
+#define GPIO_PWM1_PIN                       GPIO_22
+#define GPIO_PWM2_PIN                       GPIO_23
+#define GPIO_PWM3_PIN                       GPIO_24
+
+/*DAC*/
+#define GPIO_DAC_SD_PIN                     GPIO_25
+#define GPIO_DAC_OUT_P_PIN                  GPIO_26
+#define GPIO_DAC_OUT_N_PIN                  GPIO_33
+
+/*PDM MIC*/
+#define GPIO_PDM_CLK_PIN                    GPIO_22
+#define GPIO_PDM_DATA_PIN                   GPIO_23
+
+/*ISO7816*/
+#define UART_7816_RST_IO                    GPIO_24
+#define UART_7816_DATA_IO                   GPIO_23
+#define UART_7816_CLK_IO                    GPIO_34
+
+#define UART_7816_DETECT_IO                 GPIO_32
+#define UART_7816_CARD_3V3                  GPIO_21
+#define UART_7816_CLK_TIM                   TIM6
+#define UART_7816_BAUD                      (3226)
+
+/*  YC_ST7735S IO  */
+#define YC_ST7735S_IO_RST                   GPIO_20
+#define YC_ST7735S_IO_RS                    GPIO_21 // 低电平：寄存器    高电平：数据
+#define YC_ST7735S_IO_LED                   GPIO_22 // 背光控制， 高电平点亮，低电平灭
+#define YC_ST7735S_IO_CLK                   GPIO_34
+#define YC_ST7735S_IO_SDI                   GPIO_35
+#define YC_ST7735S_IO_CS                    GPIO_26
+
+/* IR/NEC (send and receive)*/
+#define NEC_PIN                             GPIO_0
+
+/*key*/
+#define KEY1_PIN                            GPIO_11
+#define KEY2_PIN                            GPIO_12
+
+#elif(BOARD_TYPE == BOARD_2026_100_YC1630_7_EVB_V1_0)
+#define RC_CLK_SOURCE                       (24000000) /*RC时钟定义*/
+#define EXTERNAL_CRYSTAL                    (24000000) /*外部晶体时钟定义*/
+#define EXTERNAL_CRYSTAL_MS                 (24000)
+#define EXTERNAL_CRYSTAL_US                 (24)
+
+/*Print Port*/
+#define PRINT_PORT                          CORE_UARTA
+#define PRINT_IRQ_PORT                      UARTA_IRQn
+#define PRINT_BAUD                          (2000000)
+#define PRINT_RX_IO_PIN                     GPIO_5
+#define PRINT_TX_IO_PIN                     GPIO_4
+
+/*led*/
+#define GPIO_LED_PIN                        GPIO_32
+
+#define NO_CRYSTAL_GPIO                     GPIO_9
+
+/*GPIO IRQ*/
+#define GPIO_HIGH_IRQ_PIN                   GPIO_0
+#define GPIO_LOW_IRQ_PIN                    GPIO_1
+#define GPIO_RISING_IRQ_PIN                 GPIO_2
+#define GPIO_FALL_IRQ_PIN                   GPIO_3
+#define GPIO_RISING_FALL_IRQ_PIN            GPIO_10
+
+#define GPIO_FREQUENCY_CAPTURE_PIN          GPIO_10
+
+/*SPI*/
+#define SPI_NCS_PIN                         GPIO_29
+#define SPI_SCK_PIN                         GPIO_21
+#define SPI_MOSI_PIN                        GPIO_20
+#define SPI_MISO_PIN                        GPIO_30
+
+/*QSPI*/
+#define QSPI_PORT                           CORE_QSPI1
+#define QSPI_IRQ_PORT                       QSPI1_IRQn
+#define QSPI_NCS_PIN                        GPIO_29
+#define QSPI_SCK_PIN                        GPIO_21
+#define QSPI_IO0_PIN                        GPIO_20
+#define QSPI_IO1_PIN                        GPIO_30
+#define QSPI_IO2_PIN                        GPIO_25
+#define QSPI_IO3_PIN                        GPIO_22
+
+/*IIC*/
+#define IIC_PORT                            CORE_IIC
+#define IIC_IRQ_PORT                        IIC0_IRQn
+#define IIC_SCL_PIN                         GPIO_17
+#define IIC_SDA_PIN                         GPIO_18
+
+/*GPIO LONG PRESS RESET*/
+#define GPIO_Long_Press_Reset_1             GPIO_20
+// #define GPIO_Long_Press_Reset_2            GPIO_26
+// #define GPIO_Long_Press_Reset_3            GPIO_31
+
+/*PWM*/
+#define GPIO_PWM0_PIN                       GPIO_20
+#define GPIO_PWM1_PIN                       GPIO_25
+#define GPIO_PWM2_PIN                       GPIO_2
+#define GPIO_PWM3_PIN                       GPIO_3
+
+
+/*DAC*/
+#define GPIO_DAC_SD_PIN                     GPIO_17
+#define GPIO_DAC_OUT_P_PIN                  GPIO_32
+#define GPIO_DAC_OUT_N_PIN                  GPIO_9
+
+/*PDM MIC*/
+#define GPIO_PDM_CLK_PIN                    GPIO_8
+#define GPIO_PDM_DATA_PIN                   GPIO_10
+
+/*ISO7816*/
+#define UART_7816_RST_IO                    GPIO_17
+#define UART_7816_DATA_IO                   GPIO_18
+#define UART_7816_CLK_IO                    GPIO_8
+
+#define UART_7816_DETECT_IO                 GPIO_32
+#define UART_7816_CARD_3V3                  GPIO_9
+#define UART_7816_CLK_TIM                   TIM6
+#define UART_7816_BAUD                      (12800)
+
+
+/*  YC_ST7735S IO  */
+#define YC_ST7735S_IO_RST                   GPIO_8
+#define YC_ST7735S_IO_RS                    GPIO_9          //低电平：寄存器    高电平：数据
+#define YC_ST7735S_IO_LED                   GPIO_10         //背光控制， 高电平点亮，低电平灭
+#define YC_ST7735S_IO_CLK                   GPIO_17
+#define YC_ST7735S_IO_SDI                   GPIO_18
+#define YC_ST7735S_IO_CS                    GPIO_32
+
+/* IR/NEC (send and receive)*/
+#define NEC_PIN                             GPIO_9
+
+/*key*/
+#define KEY1_PIN                            GPIO_8
+#define KEY2_PIN                            GPIO_10
+
+/*OTA*/
+#define USB_OTA_PIN                         GPIO_8
+#define BLE_OTA_PIN                         GPIO_10
 
 #endif
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
 
 #endif

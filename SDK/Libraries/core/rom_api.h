@@ -94,7 +94,8 @@ typedef struct
     uint8_t             flash_io1;
     uint8_t             flash_io2;
     uint8_t             flash_io3;
-    uint16_t            reserved;
+    uint8_t             retention_cfg;
+    uint8_t             reserved;
 
 } QSPI_ParamTypeDef;
 
@@ -112,7 +113,7 @@ typedef struct
         {
             uint8_t swtich      :3;
             uint8_t sleep       :3;
-            uint8_t reserved    :2;
+            uint8_t wake_mode   :2;
         } bit;
     } rg_lpm_ldo_dig_retmem_vsel;
     union
@@ -122,7 +123,7 @@ typedef struct
         {
             uint8_t run         :3;
             uint8_t sleep       :3;
-            uint8_t reserved    :2;
+            uint8_t sleep_mode  :2;
         } bit;
     } rg_lpm_ldo_dig_lpm_vosel;
     union
@@ -148,9 +149,9 @@ void static inline prefetch(void *start_addr, void *end_addr, int permanent)
     int addr, val = 1;
     for(addr = (int)start_addr & ~0x1f;addr < (int)end_addr + 32;addr += 32)
         if(permanent)
-            asm volatile("sw %1,0(%0)" ::"r"(addr), "r"(val));
+            __ASM volatile("sw %1,0(%0)" ::"r"(addr), "r"(val));
         else
-            asm volatile("lw x0,0(%0)" ::"r"(addr));
+            __ASM volatile("lw x0,0(%0)" ::"r"(addr));
 }
 
 

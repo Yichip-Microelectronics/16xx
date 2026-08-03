@@ -37,7 +37,7 @@ extern "C" {
 extern uint32_t __disable_irq(void);
 extern void __enable_irq(uint32_t level);
 
-#define WFI() __asm("wfi");
+#define WFI() __ASM("wfi");
 
 /** @addtogroup Configuration_of_CMSIS
   * @{
@@ -6641,13 +6641,6 @@ typedef struct
 #define PWM_PCNT(x)                 (*(volatile uint16_t *)((PWM_BASE+0x10) + 8*x))
 #define PWM_NCNT(x)                 (*(volatile uint16_t *)((PWM_BASE+0x12) + 8*x))
 #define PWM_CNT(x)                  (*(volatile uint16_t *)((PWM_BASE+0x4c) + 2*x))
-
-#define MEMPTR(val)                 (void *)((int)(val) | 0x10000)
-#define MEMPTR_SUB(val)             (int)((int)(val) - 0x10000)
-#define MEMPTR_ADD(val)             (int)((int)(val) + 0x10000)
-#define INCPTR(p, inc, buf)         if((p += inc) >= buf + sizeof(buf)) p -= sizeof(buf)
-
-#define RB_UPDATE_PTR(p,s,e)        ((p) >= (e))?((p)=(s)):((p)++)
 
 /** @} */ /* End of group Device_Peripheral_declaration */
 

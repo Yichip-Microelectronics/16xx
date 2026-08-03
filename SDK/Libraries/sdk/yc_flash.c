@@ -407,6 +407,22 @@ uint32_t __attribute__((noinline)) __qspi0_flash_jedecid(void)
     return ret;
 }
 
+/**
+ * @brief qspi0 read flash uniqueid.
+ * @param uid_buf The databuf addr for uid buf
+ * @return qspi0 read flash uniqueid ERROR OR SUCCESS
+ */
+
+uint8_t __attribute__((noinline)) __qspi0_flash_uniqueid(uint8_t *uid_buf)
+{
+    uint8_t ret;
+    uint8_t t1buf[5] = {0};
+    t1buf[0] = W25X_UNIQUEID;
+    ret = __qspi0_readwrite(t1buf, 5, uid_buf, 16);
+    return ret;
+}
+
+
 uint8_t __qspi0_write_flash(uint32_t flashAddr, uint32_t len, uint8_t *tbuf)
 {
 
@@ -799,6 +815,25 @@ uint32_t FLASH_GetJedecId(void)
     #endif
     __enable_irq(sys_irq_status);
     return ID;
+}
+
+/**
+ * @brief get flash Unique id.
+ * @param uid_buf: Unique id buffer
+ * @return SUCCESS or ERROR
+ */
+uint8_t FLASH_GetUniqueID(uint8_t *uid_buf)
+{
+    uint32_t sys_irq_status = __disable_irq();
+    #if FLASH_USE_ROM_API
+    uint8_t tbuf[5] = {0x4b,0x00,0x00,0x00,0x00};
+    uint8_t result = ((uint8_t (*)(uint8_t *tbuf, uint32_t tlen, uint8_t *rbuf, uint32_t rlen))ROM_API_QSPI0_READWRITE)(tbuf,5,uid_buf,16);
+    #else
+    prefetch(__qspi0_dmastart,FLASH_GetUniqueID,DISABLE);
+    uint8_t result = __qspi0_flash_uniqueid(uid_buf);
+    #endif
+    __enable_irq(sys_irq_status);
+    return result;
 }
 /**
  * @brief set flash parameter offset.

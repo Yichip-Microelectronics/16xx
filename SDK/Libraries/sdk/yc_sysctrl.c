@@ -86,7 +86,7 @@ void delay_ms(uint32_t ms)
  * @param  state:ENABLE is open,other is close
  * @retval none
  */
-void SYSCTRL_CrystalCtrl(FunctionalState state)
+_ramcode void SYSCTRL_CrystalCtrl(FunctionalState state)
 {
     #if(NO_CRYSTAL ==1)
     RF_LDO_RF->ldo_ctrl0.bit.da_ldo_abb_en =1;
@@ -121,23 +121,43 @@ void SYSCTRL_CrystalCtrl(FunctionalState state)
  * @param  none
  * @retval none
  */
-void SYSCTRL_DpllInit(void)
+_ramcode void SYSCTRL_DpllInit(void)
 {
     #if (BOARD_TYPE !=BOARD_2020_022_1508FPGA_V_1_2)
     if (RF_BBPLL->bbpll_ctrl0.bit.da_ldo_bbpll_en == 0)
     {
+        #if NO_CRYSTAL
+        CORE_GPIO->gpio_cfg[NO_CRYSTAL_GPIO] = GPIO_MODE_PWM_OUT;
+        PWM_PCNT((NO_CRYSTAL_GPIO%8)) = 1;
+        PWM_NCNT((NO_CRYSTAL_GPIO%8)) = 1;
+        PWM_CTRL((NO_CRYSTAL_GPIO%8))->pwm0_ctrl.reg = 0xa0;
+        PWM_CLKEN |= (1 << (NO_CRYSTAL_GPIO%8));
+        #endif
         RF_BBPLL->bbpll_ctrl0.reg |= 0x87;
-        RF_BBPLL->bbpll_ctrl1.reg |= 0xfc;
-        RF_BBPLL->bbpll_sdm.bit.da_bbpll_sdm_rstn = 1;
+        RF_BBPLL->bbpll_ctrl1.reg =0x50;
+        ((void(*)(uint32_t cnt))ROM_API_DELAY)(10);
+        RF_BBPLL->bbpll_ctrl1.reg = 0xf0|
+                                    1<<3|  //384_en
+                                    1<<2;  //256_en
 
-        RF_BBPLL->bbpll_cfg5.bit.rg_bbpll_logen_cksel = NO_CRYSTAL;
         #if (EXTERNAL_CRYSTAL == 16000000)
         RF_BBPLL->bbpll_div_int.reg=0x18;
         #elif (EXTERNAL_CRYSTAL == 32000000)
         RF_BBPLL->bbpll_div_int.reg=0x0c;
         #endif
+
+        RF_BBPLL->bbpll_sdm.bit.da_bbpll_sdm_rstn = 1;
+
+        RF_BBPLL->bbpll_cfg5.bit.rg_bbpll_logen_cksel = NO_CRYSTAL;
+
         CORE_CHIP_SYS->anaclk_en.bit.clk_dpll_384_en = 1;
         CORE_CHIP_SYS->anaclk_en.bit.clk_dpll_256_en = 1;
+        #if NO_CRYSTAL
+        delay_us(50);
+        CORE_CHIP_SYS->sys_clksel.bit.uart_clksel=1;
+        PWM_CTRL((NO_CRYSTAL_GPIO%8))->pwm0_ctrl.reg = 0;
+        PWM_CLKEN &= (~(1 << (NO_CRYSTAL_GPIO%8)));
+        #endif
     }
     #endif
 }
@@ -150,7 +170,7 @@ void SYSCTRL_DpllInit(void)
  *
  * @return mcu clock(Hz)
  */
-uint32_t SYSCTRL_GetMcuClk(void)
+_ramcode uint32_t SYSCTRL_GetMcuClk(void)
 {
     uint8_t sys_clksel = CORE_CHIP_SYS->sys_clksel.bit.sys_clksel;
     uint8_t mcu_clksel = CORE_CHIP_SYS->mcu_clk_sel.bit.mcu_clk_sel;
@@ -204,7 +224,7 @@ uint32_t SYSCTRL_GetMcuClk(void)
  *
  * @return system clock(Hz)
  */
-uint32_t SYSCTRL_GetSystemClk(void)
+_ramcode uint32_t SYSCTRL_GetSystemClk(void)
 {
     uint8_t sys_clkdiv = CORE_CHIP_SYS->sys_clksel.bit.sys_clkdiv;
     uint32_t mcu_clk = 0;
@@ -240,7 +260,7 @@ void SYSCTRL_ClkEn(CLK_EnEnum type,FunctionalState newState)
  * @param mcuDpllClkSel : It is only valid when sysClkSource == SYS_CLKSEL_DPLL
  * @param flashClkSel : It is only valid when sysClkSource == SYS_CLKSEL_DPLL
  */
-void SYSCTRL_ClkInit(SYS_ClkEnum sysClkSource, uint8_t sysClkDiv, DPLL_ClkEnum mcuDpllClkSel, DPLL_ClkEnum flashClkSel)
+_ramcode void SYSCTRL_ClkInit(SYS_ClkEnum sysClkSource, uint8_t sysClkDiv, DPLL_ClkEnum mcuDpllClkSel, DPLL_ClkEnum flashClkSel)
 {
 
     CORE_CHIP_SYS->sys_clksel.bit.sys_clksel = sysClkSource;
@@ -250,6 +270,7 @@ void SYSCTRL_ClkInit(SYS_ClkEnum sysClkSource, uint8_t sysClkDiv, DPLL_ClkEnum m
 
     uint32_t mcu_clk=SYSCTRL_GetMcuClk();
     CORE_CHIP_SYS->sysclk_reg.reg=(((mcu_clk/1000000)<<20)|((mcu_clk/1000)&0xfffff));
+    _ASSERT((mcu_clk / (sysClkDiv + 1)) <= 96000000);
 }
 
 
@@ -260,16 +281,14 @@ void SYSCTRL_ClkInit(SYS_ClkEnum sysClkSource, uint8_t sysClkDiv, DPLL_ClkEnum m
  * @param  none
  * @retval none
  */
-void SYSCTRL_ChipInit(void)
+_ramcode void SYSCTRL_ChipInit(void)
 {
     LPM_CONTROL->ice_mode.bit.wd_en = 0;//disable watch dog
 
-#if (NO_CRYSTAL == 0)
     // xtal enable
     SYSCTRL_CrystalCtrl(ENABLE);
     // Dpll setup.
     SYSCTRL_DpllInit();
-#endif
     SYSCTRL_ClkInit(SYS_CLK_SOURCE, SYS_CLK_DIV, MCU_DPLL_CLK_SEL, FLASH_CLK_SEL);
 }
 
@@ -280,17 +299,21 @@ void SYSCTRL_ChipInit(void)
  * @param  none
  * @retval none
  */
-void SYSCTRL_SystemInit(void)
+_ramcode void SYSCTRL_SystemInit(void)
 {
-    #ifndef YC_LOG_SWITCH
+    #if (!YC_LOG_SWITCH)
     CORE_CHIP_SYS->io_rst_src_en.bit.code_crc_fail_rst_en=1;
     CORE_CHIP_SYS->io_rst_src_en.bit.cpu_access_err_fail_rst_en=1;
     #endif
     //开启vdt
     LPM_HW_CONTROL_NOEXP->da_lpm_vdt_dcdc_en.bit.da_lpm_vdt_vdcdc_en=1;
     LPM_HW_CONTROL_NOEXP->da_lpm_vdt_dcdc_en.bit.da_lpm_vdt_vddio_en=1;
+
+    LPM_HW_CONTROL_NOEXP->da_lpm_ldo_dig_core_vsel.bit.da_lpm_ldo_dig_core_ildsel=0;
+
     #if (PWR_USE_BUCK == 1)
     LPM_HW_CONTROL_NOEXP->da_lpm_ldo_0p33vdd_aon_bypb.bit.da_lpm_pwr_dcdc_mode=1;
+    LPM_HW_CONTROL_NOEXP->rg_lpm_buck_dt_ctrl.bit.rg_lpm_buck_fb_sel=0Xf;
     #else
     LPM_HW_CONTROL_NOEXP->da_lpm_ldo_0p33vdd_aon_bypb.bit.da_lpm_pwr_dcdc_mode=0;
     #endif
@@ -335,6 +358,24 @@ void SYSCTRL_ClearSysEvent(uint8_t event)
     CORE_CHIP_SYS->sys_event_lock.reg = event;
 }
 
+/**
+ * @method SYSCTRL_IceCmd
+ * @brief  enable or disable ice debug port
+ * @param  newState:ENABLE or DISABLE
+ * @retval none
+ */
+void SYSCTRL_IceCmd(FunctionalState newState)
+{
+    if(newState == ENABLE)
+    {
+        LPM_CONTROL->ice_mode.bit.ice_mode=1;
+    }
+    else
+    {
+        LPM_CONTROL->ice_mode.bit.ice_mode=0;
+    }
+}
+
 
 extern char _end;//heap start
 extern char _heap_end;//heap end
@@ -342,10 +383,10 @@ extern char _heap_end;//heap end
     #define __caddr_t_defined
     typedef    char     *caddr_t;
 #endif
+static LPM_RETENTION char *curbrk = &_end;
+
 caddr_t _sbrk(ptrdiff_t incr)
 {
-    static char *curbrk = &_end;
-
     if ((curbrk + incr < (&_end)) || ((curbrk + incr) > (&_heap_end)))
     {
         //     yc_log("_end=%x _heap_end=%x heap_size=%x curbrk=%x incr=%x\r\n",&_end,&_heap_end,&_heap_end-&_end,curbrk,incr);
@@ -353,6 +394,16 @@ caddr_t _sbrk(ptrdiff_t incr)
     }
     curbrk += incr;
     return (caddr_t)(curbrk - incr);
+}
+
+/* Called from wakeup assembly before bt_lpm_recover.
+ * Reset heap state: orphan free list (nodes in non-retention RAM are lost)
+ * and rewind heap pointer to prevent memory leak across sleep cycles. */
+void heap_reset_for_wakeup(void)
+{
+    extern void *__malloc_free_list;
+    __malloc_free_list = NULL;
+    curbrk = (char *)&_end;
 }
 
 /************************ (C) COPYRIGHT Yichip Microelectronics *****END OF FILE****/

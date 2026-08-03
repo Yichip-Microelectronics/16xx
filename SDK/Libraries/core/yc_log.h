@@ -30,17 +30,26 @@ YC_BT_ERROR_LOG_SWITCH:bt模块错误日志开关,对应日志函数为yc_bt_err
 extern "C" {
 #endif
 
-#define YC_LOG_SWITCH
+#ifndef YC_LOG_SWITCH
+#define YC_LOG_SWITCH                           (1)     /*总日志开关*/
+#endif
+
+#ifndef USE_CUSTOM_PRINT
+#define USE_CUSTOM_PRINT                        (1)     /*是否使用自定义打印函数*/
+#endif
 
 /*bt log switch control*/
-#ifdef YC_LOG_SWITCH
+#if (YC_LOG_SWITCH)
+// #define YC_BT_BB_LOG_SWITCH
 #define YC_BT_LOG_SWITCH
-#define YC_BT_WARNING_LOG_SWITCH
-#define YC_BT_ERROR_LOG_SWITCH
 #define YC_USB_LOG_SWITCH
 #endif
 
-#ifdef YC_LOG_SWITCH
+#if (USE_CUSTOM_PRINT)
+#define printf MyPrintf
+#endif
+
+#if (YC_LOG_SWITCH)
 
 #define yc_log(fmt, ...)                                                        \
     do                                                                          \
@@ -54,6 +63,20 @@ extern "C" {
 #define yc_log_buf(str,buf,len)
 #endif
 
+#ifdef YC_BT_BB_LOG_SWITCH
+#define yc_bt_bb_log(fmt, ...)                                                     \
+    do                                                                          \
+    {                                                                           \
+        printf(fmt "\r\n", ##__VA_ARGS__);                                      \
+    } while (0)
+
+#define yc_bt_bb_log_buf(str,buf,len) yc_log_buf(str, buf, len)
+#else
+#define yc_bt_bb_log(fmt, ...)
+#define yc_bt_bb_log_buf(str,buf,len)
+#endif
+
+
 #ifdef YC_BT_LOG_SWITCH
 #define yc_bt_log(fmt, ...)                                                     \
     do                                                                          \
@@ -64,26 +87,7 @@ extern "C" {
 #define yc_bt_log_buf(str,buf,len) yc_log_buf(str, buf, len)
 #else
 #define yc_bt_log(fmt, ...)
-#endif
-
-#ifdef YC_BT_WARNING_LOG_SWITCH
-#define yc_bt_warning_log(fmt, ...)                                             \
-    do                                                                          \
-    {                                                                           \
-        printf(fmt "\r\n", ##__VA_ARGS__);                                      \
-    } while (0)
-#else
-#define yc_bt_warning_log(fmt, ...)
-#endif
-
-#ifdef YC_BT_ERROR_LOG_SWITCH
-#define yc_bt_error_log(fmt, ...)                                               \
-    do                                                                          \
-    {                                                                           \
-        printf(fmt "\r\n", ##__VA_ARGS__);                                      \
-    } while (0)
-#else
-#define yc_bt_error_log(fmt, ...)
+#define yc_bt_log_buf(str,buf,len)
 #endif
 
 #ifdef YC_USB_LOG_SWITCH
@@ -97,8 +101,9 @@ extern "C" {
 #endif
 
 void printport_init(void);
+void printport_deinit(void);
 
-#ifdef YC_LOG_SWITCH
+#if (YC_LOG_SWITCH)
 void _assert_handler(const char *file, int line, const char *func);
 #define _ASSERT(x)                                         \
     if (!(x))                                              \
@@ -116,11 +121,15 @@ void _assert_handler(void);
     }
 #endif
 
-#ifndef YC_LOG_SWITCH
+#if (YC_LOG_SWITCH)
+    #if (USE_CUSTOM_PRINT)
+    void MyPrintf(const char *format, ...);
+    #endif
+void printv(char *s, uint8_t *buf, uint32_t len);
+#else
 #define printf(fmt, ...)
 #define printv(str, pbuf, len)
-#else
-void printv(char *s, uint8_t *buf, uint32_t len);
+#define MyPrintf
 #endif
 
 #ifdef __cplusplus

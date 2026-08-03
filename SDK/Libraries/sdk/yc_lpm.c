@@ -9,6 +9,9 @@ Description  : lpm driver interface implement.
 #include "yc_flash.h"
 #include "yc_systick.h"
 #include "yc_rtc.h"
+#if(BT_EN)
+#include "yc_bt.h"
+#endif
 
 #define GPIO_LATCH_CFG_BIT_NUM  (3)
 #define MCU_BIST_FIX_EN         *(volatile uint32_t*)(0x84c4)
@@ -41,9 +44,10 @@ void LPM_Init(void)
         }
     }
     //wakeup cnt init
-    LPM_CONTROL->digldo_cnt.bit.digldo_cnt=0x14;
-    LPM_CONTROL->xtal_cnt.reg=0x3f;
-    LPM_CONTROL->exen_cnt.reg=0xff;
+    LPM_CONTROL->digldo_cnt.bit.digldo_cnt=0x02;
+    LPM_CONTROL->digldo_cnt.bit.rco_cnt=0x07;
+    LPM_CONTROL->xtal_cnt.reg=0x35;
+    LPM_CONTROL->exen_cnt.reg=0x08;
 }
 
 /**
@@ -65,37 +69,57 @@ void LPM_SetGpioLatch(GPIO_NumEnum gpiox,LPM_LatchEnum type)
     }
 }
 
-__attribute__((naked)) void sleep_entry(uint8_t  wakeupMode,uint8_t retentionCfg,uint8_t ramLdoCfg)
+static bool LPM_BtprepareActionBeforeSleep(LPM_ModeEnum sleepLevel)
 {
-    //save core reg
-    __ASM("addi sp,sp,-64");
-    __ASM("sw   s0, 0(sp)");
-    __ASM("sw   s1, 4(sp)");
-    __ASM("sw   s2, 8(sp)");
-    __ASM("sw   s3,12(sp)");
-    __ASM("sw   s4,16(sp)");
-    __ASM("sw   s5,20(sp)");
-    __ASM("sw   s6,24(sp)");
-    __ASM("sw   s7,28(sp)");
-    __ASM("sw   s8,32(sp)");
-    __ASM("sw   s9,36(sp)");
-    __ASM("sw  s10,40(sp)");
-    __ASM("sw  s11,44(sp)");
-    __ASM("sw   ra,48(sp)");
+    #if(BT_EN)
+    if(sleepLevel==SLEEP_MODE_LPM)
+    {
+        rtc_calibration_init();
+        return LE_PrepareActionBeforeSleep();
+    }
+    else
+    {
+        return true;
+    }
+    #else
+    return true;
+    #endif
+}
+
+__attribute__((naked)) void sleep_entry(uint8_t  wakeupMode,uint8_t retentionCfg,uint8_t ramLdoCfg,uint8_t save_stack)
+{
+    if(save_stack)
+    {
+        //save core reg
+        __ASM("addi sp,sp,-64");
+        __ASM("sw   s0, 0(sp)");
+        __ASM("sw   s1, 4(sp)");
+        __ASM("sw   s2, 8(sp)");
+        __ASM("sw   s3,12(sp)");
+        __ASM("sw   s4,16(sp)");
+        __ASM("sw   s5,20(sp)");
+        __ASM("sw   s6,24(sp)");
+        __ASM("sw   s7,28(sp)");
+        __ASM("sw   s8,32(sp)");
+        __ASM("sw   s9,36(sp)");
+        __ASM("sw  s10,40(sp)");
+        __ASM("sw  s11,44(sp)");
+        __ASM("sw   ra,48(sp)");
+        //save sp&wakeup_mode
+        __ASM("li   t1,0x9f1c");
+        //sp
+        __ASM("mv   t2,sp"    );
+        __ASM("srli t2,t2,2"  );
+        __ASM("li t3,0xffff"  );
+        __ASM("and t2,t2,t3"  );
+        //wakeup_mode
+        __ASM("slli a0,a0,16" );
+        __ASM("or t2,t2,a0"   );//wakeup_mode into bit16
+        __ASM("sw    t2,0(t1)");
+    }
     //Cache parameters
     __ASM("mv   s1,a1"    );//retentionCfg
     __ASM("mv   s2,a2"    );//ramLdoCfg
-    //save sp&wakeup_mode
-    __ASM("li   t1,0x9f1c");
-    //sp
-    __ASM("mv   t2,sp"    );
-    __ASM("srli t2,t2,2"  );
-    __ASM("li t3,0xffff"  );
-    __ASM("and t2,t2,t3"  );
-    //wakeup_mode
-    __ASM("slli a0,a0,16" );
-    __ASM("or t2,t2,a0"   );//wakeup_mode into bit16
-    __ASM("sw    t2,0(t1)");
     //flash powerdown
     ((void(*)(uint8_t cmd))ROM_API_QSPI0_FLASHCMD)(0xb9);
     //set flash io HI_Z
@@ -171,6 +195,46 @@ __attribute__((naked)) void sleep_entry(uint8_t  wakeupMode,uint8_t retentionCfg
     __ASM("j .");
 }
 
+extern void wakeup_recover(void);
+extern void flash_start(void);
+void LPM_SleepEntry(LPM_ModeEnum sleepLevel,uint8_t  wakeupMode,uint8_t retentionCfg,uint8_t save_stack)
+{
+    //CPU降频
+    SYSCTRL_ClkInit(SYS_CLK_SOURCE, SYS_CLK_DIV, DPLL_CLKSEL_48MHZ, DPLL_CLKSEL_48MHZ);
+    //关闭vdt
+    LPM_HW_CONTROL_NOEXP->da_lpm_vdt_dcdc_en.bit.da_lpm_vdt_vdcdc_en=0;
+    LPM_HW_CONTROL_NOEXP->da_lpm_vdt_dcdc_en.bit.da_lpm_vdt_vddio_en=0;
+    ///*lpm set default*/
+    LPM_HW_CONTROL_NOEXP->da_lpm_xtal_ck2bbpll_en.reg=0x6f;
+    LPM_HW_CONTROL_NOEXP->da_lpm_ldo_dig_core_vsel.bit.da_lpm_ldo_dig_core_ildsel=2;
+
+    LPM_HW_CONTROL_NOEXP->rg_lpm_xtal_ldo_vref_sel.bit.rg_lpm_xtal_ldo_vref_sel=2;
+    LPM_HW_CONTROL_NOEXP->rg_lpm_xtal_ldo_vref_sel.bit.rg_lpm_xtal_ldo_vout_sel=1;
+    LPM_HW_CONTROL_NOEXP->rg_lpm_xtal_ldo_vref_sel.bit.da_lpm_xtal_isel=0x0f;
+
+    LPM_HW_CONTROL_NOEXP->rg_lpm_ldo_dig_lpm_vosel.bit.rg_lpm_ldo_dig_lpm_vosel=LpmRecoverStruct->rg_lpm_ldo_dig_lpm_vosel.bit.sleep;
+    LPM_HW_CONTROL_NOEXP->rg_lpm_ldo_dig_lpm_vosel.bit.rg_lpm_ldo_dig_retmem_vsel=LpmRecoverStruct->rg_lpm_ldo_dig_retmem_vsel.bit.swtich;
+    if(retentionCfg)
+    {
+        LPM_HW_CONTROL_NOEXP->da_lpm_dvdd_retmem_en.bit.da_lpm_ldo_dig_retmem_en=1;
+        if((retentionCfg&0x10)==0x10)
+        {
+            LPM_CONTROL->lpm_pc.bit.lpm_pc=(((uint32_t)wakeup_recover)>>1);
+        }
+        else
+        {
+            LPM_CONTROL->lpm_pc.bit.lpm_pc=(((uint32_t)flash_start)>>1);
+        }
+    }
+    else
+    {
+        LPM_HW_CONTROL_NOEXP->da_lpm_dvdd_retmem_en.bit.da_lpm_ldo_dig_retmem_en=0;
+    }
+
+    prefetch((void*)sleep_entry,(void*)(sleep_entry+0x200),DISABLE);
+    sleep_entry(wakeupMode,retentionCfg,LpmRecoverStruct->rg_lpm_ldo_dig_retmem_vsel.bit.sleep,save_stack);
+}
+
 /**
  * @method LPM_Sleep
  * @brief  chip into sleep mode
@@ -185,44 +249,32 @@ __attribute__((naked)) void sleep_entry(uint8_t  wakeupMode,uint8_t retentionCfg
  * @param  wakeMode:WAKEUP_FROM_MAIN or WAKEUP_FROM_MAIN
  * @param  lpmPreCallback:the callback function for prepare sleep
  * @param  lpmPostCallback:the callback function for post sleep
- * @retval none
+ * @retval true:lpm ok; false:lpm fail
  */
-void LPM_Sleep(uint32_t sleepTimeMs, LPM_ModeEnum sleepLevel,uint8_t retentionCfg,LPM_WakeupModeEnum wakeMode,lpmPreActionCb lpmPreCallback,lpmPostActionCb lpmPostCallback)
+bool LPM_Sleep(uint32_t sleepTimeMs, LPM_ModeEnum sleepLevel,uint8_t retentionCfg,LPM_WakeupModeEnum wakeMode,lpmPreActionCb lpmPreCallback,lpmPostActionCb lpmPostCallback)
 {
     LPM_Init();
     RTC_Cmd(ENABLE);
-    //需添加各分支处理
 
+    if(false == LPM_BtprepareActionBeforeSleep(sleepLevel))
+    {
+        return false;
+    }
     lpmPreCallback(sleepLevel);
 
     if(sleepTimeMs>0)
     {
-        RTC_SetAlarm0(RTC_GetCount(OV_INTR)+(sleepTimeMs*(RTC_GetClk()/1000)));
-        RTC_WKConfig(ALARM0,ENABLE);
+        RTC_SetAlarm1(RTC_GetCount(OV_INTR)+(sleepTimeMs*(RTC_GetClk()/1000)));
+        RTC_WKConfig(ALARM1,ENABLE);
     }
 
-    retentionCfg=(retentionCfg&0x1f);
+    LpmRecoverStruct->rg_lpm_ldo_dig_lpm_vosel.bit.sleep_mode=sleepLevel;
+    LpmRecoverStruct->rg_lpm_ldo_dig_retmem_vsel.bit.wake_mode=wakeMode;
+    LpmRecoverStruct->qspi_param.retention_cfg=(retentionCfg&0x1f);
 
     LpmRecoverStruct->crc16 = ((uint16_t(*)(uint16_t base_crc, uint8_t* data, unsigned int len))ROM_API_CRC16)(0xffff,(uint8_t*)&LpmRecoverStruct->qspi_param,LPM_RECOVER_STRUCT_LEN-2);
-    //CPU降频
-    SYSCTRL_ClkInit(SYS_CLK_SOURCE, SYS_CLK_DIV, DPLL_CLKSEL_48MHZ, DPLL_CLKSEL_24MHZ);
 
-    //关闭vdt
-    LPM_HW_CONTROL_NOEXP->da_lpm_vdt_dcdc_en.bit.da_lpm_vdt_vdcdc_en=0;
-    LPM_HW_CONTROL_NOEXP->da_lpm_vdt_dcdc_en.bit.da_lpm_vdt_vddio_en=0;
-
-    LPM_HW_CONTROL_NOEXP->rg_lpm_ldo_dig_lpm_vosel.bit.rg_lpm_ldo_dig_lpm_vosel=LpmRecoverStruct->rg_lpm_ldo_dig_lpm_vosel.bit.sleep;
-    LPM_HW_CONTROL_NOEXP->rg_lpm_ldo_dig_lpm_vosel.bit.rg_lpm_ldo_dig_retmem_vsel=LpmRecoverStruct->rg_lpm_ldo_dig_retmem_vsel.bit.swtich;
-    if(retentionCfg)
-    {
-        LPM_HW_CONTROL_NOEXP->da_lpm_dvdd_retmem_en.bit.da_lpm_ldo_dig_retmem_en=1;
-    }
-    else
-    {
-        LPM_HW_CONTROL_NOEXP->da_lpm_dvdd_retmem_en.bit.da_lpm_ldo_dig_retmem_en=0;
-    }
-
-    prefetch((void*)sleep_entry,(void*)(sleep_entry+0x200),DISABLE);
-    sleep_entry(wakeMode,retentionCfg,LpmRecoverStruct->rg_lpm_ldo_dig_retmem_vsel.bit.sleep);
+    LPM_SleepEntry(sleepLevel,wakeMode,LpmRecoverStruct->qspi_param.retention_cfg,1);
     lpmPostCallback(sleepLevel);
+    return true;
 }

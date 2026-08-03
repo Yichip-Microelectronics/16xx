@@ -480,8 +480,10 @@ void HSPI_SendAndReceiveData(uint8_t *txbuff, uint32_t txlen, uint8_t *rxbuff, u
     CORE_SPI->spi_dma_rx_len.bit.rx_len = rxlen;
 
     CORE_SPI->spi_ctrl.bit.spi_start = 1;
-    while (!(HSPI_GetSpiStatus(DMA_DONE)));/* if enable dma done irq,these two sentences can be annotated, without wait, please use irq to send data */
+    #ifndef HSPI_NO_WAIT
+    while (!(HSPI_GetSpiStatus(DMA_DONE)));
     HSPI_ClearIrq(DMA_DONE);
+    #endif
 
 }
 

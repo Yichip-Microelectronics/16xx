@@ -1,7 +1,7 @@
 #ifndef __HW_H__
 #define __HW_H__
 
-#include "types.h"
+#include "yc_types.h"
 #include "yc_log.h"
 #include <string.h>
 #define core_revision                             *(volatile word*)0x8000
@@ -875,7 +875,7 @@
 #define BDSET_START(d)				if(btdesc_ptr) {BDSET_END}; btdesc_ptr = btdesc_start = d, btdesc_len = sizeof(d)
 #define BDSET_START_O(d)            btdesc_ptr = btdesc_start = d, btdesc_len = sizeof(d)
 #define BDSET_END					if(((int)btdesc_ptr - (int)btdesc_start) > btdesc_len){\
-                                        yc_bt_log("_ERROR:%x-%x-%x\r\n",btdesc_start,btdesc_ptr,btdesc_len);\
+                                        yc_bt_bb_log("_ERROR:%x-%x-%x\r\n",btdesc_start,btdesc_ptr,btdesc_len);\
                                         while(1);\
                                     }; \
                                     *(btdesc_ptr - 1) |= BDSET_LAST, btdesc_ptr = 0;\
@@ -902,7 +902,7 @@
 #define INSTR_RETNE(addr, val)		BTDESC_VAL(15, addr, val)
 #define INSTR_RETNW(addr)			BTDESC_VAL(16, addr, 0)
 #define INSTR_CALL(ptr,desc) 		BTDESC_VAL(17, &(ptr), desc)
-#define INSTR_WBITS(addr, mask)		BTDESC_VAL(18, addr, mask)
+#define INSTR_WBITS(addr, mask)		BTDESC_VAL(18, addr, (mask)&0xff)
 #define INSTR_RPBYTE(ptr,pos)       BTDESC_VAL(19, &ptr, pos)
 #define INSTR_INCBITS(val)          BTDESC_VAL(20, (short)val, 0)
 #define INSTR_INCADDR(addr)         BTDESC_VAL(21, addr, 0)
@@ -927,7 +927,7 @@
 #define BDSET_RETNE(addr, val)		BDSET(INSTR_RETNE(addr, val))
 #define BDSET_RETNW(addr)			BDSET(INSTR_RETNW(addr))
 #define BDSET_CALL(addr) 	 		BDSET(INSTR_CALL(addr,0))
-#define BDSET_WBITS(addr, mask)		BDSET(INSTR_WBITS(addr, mask))
+#define BDSET_WBITS(addr, mask)		BDSET(INSTR_WBITS(addr, (mask)&0xff))
 #define BDSET_RPBYTE(addr,pos)      BDSET(INSTR_RPBYTE(addr, pos))
 #define BDSET_INCBITS(val)          BDSET(INSTR_INCBITS(val))
 #define BDSET_INCADDR(addr)         BDSET(INSTR_INCADDR(addr))
@@ -969,14 +969,14 @@
 #define FREQ_IF_TX		0
 
 #define AES_KEY_DWORD		1
-#define AES_DATA_DWORD	2
+#define AES_DATA_DWORD	    2
 #define AES_CBC				4
 #define AES_CTR_MIC			8
 #define AES_CTR_DAT			12
 #define AES_BIG_ENDIAN		16
 
 #define AES_CMD_START		1
-#define AES_CMD_CTR		2
+#define AES_CMD_INITIV		2
 #define AES_CMD_CLRINT		3
 #define AES_CMD_CLRIV		4
 
@@ -1129,13 +1129,17 @@
 
 #define __ramcode__  __attribute__((section ("._SECTION_RAM_CODE_DEFINE")))
 
-#define RTC_CALI_CNT    (5)
+#define RTC_CALI_CNT    (0xa)//2^x*30us
 void static inline rtc_cali_start(uint8_t time)
 {
     core_lpo_counter_cali = (time&0xf);
     if((core_lpo_cali_cnt & (1<<31)) == 0)
         core_lpo_counter_cali |= 1<<4;
     core_lpo_counter_cali |= 1<<4;
+}
+byte static inline rtc_cali_done(void)
+{
+    return (core_lpo_cali_cnt & (1<<31)) != 0;
 }
 
 uint32_t static inline rtc_cali_end(void)
@@ -1171,9 +1175,9 @@ void inline _prefetch(void *start_addr, void *end_addr, int permanent)
     int addr, val = 1;
     for(addr = (int)start_addr & ~0x1f; addr < (int)end_addr + 32; addr += 32)
         if(permanent)
-            asm volatile("sw %1,0(%0)" ::"r"(addr), "r"(val));
+            __ASM volatile("sw %1,0(%0)" ::"r"(addr), "r"(val));
         else
-            asm volatile("lw x0,0(%0)" ::"r"(addr));
+            __ASM volatile("lw x0,0(%0)" ::"r"(addr));
 }
 
 // invalidate will remove permanent cache line
@@ -1181,29 +1185,29 @@ void inline invalidate(void *start_addr, void *end_addr)
 {
     int addr;
     for(addr = (int)start_addr & ~0x1f; addr < (int)end_addr + 32; addr += 32)
-        asm volatile("sw x0,0(%0)" ::"r"(addr));
+        __ASM volatile("sw x0,0(%0)" ::"r"(addr));
 }
 
 unsigned int inline read_csr(const int csr)
 {
     unsigned int ret;
-    asm volatile("csrr %0,%1" :"=r"(ret): "i"(csr));
+    __ASM volatile("csrr %0,%1" :"=r"(ret): "i"(csr));
     return ret;
 }
 
 void inline write_csr(const int csr, int val)
 {
-    asm("csrw %0,%1" :: "i"(csr), "r"(val));
+    __ASM("csrw %0,%1" :: "i"(csr), "r"(val));
 }
 
 void inline set_csr_bit(const int csr, int bit)
 {
-    asm("csrs %0,%1" :: "i"(csr), "r"(bit));
+    __ASM("csrs %0,%1" :: "i"(csr), "r"(bit));
 }
 
 void inline clr_csr_bit(const int csr, int bit)
 {
-    asm("csrc %0,%1" :: "i"(csr), "r"(bit));
+    __ASM("csrc %0,%1" :: "i"(csr), "r"(bit));
 }
 
 void inline enable_timer_intr()
@@ -1293,7 +1297,14 @@ int static inline queue_size(int sizex4, byte wptr, byte rptr)
 {
 	return wptr >= rptr ? wptr - rptr : sizex4 / 4 - (rptr - wptr);
 }
+int static inline get_last_queue(int *queue, int sizex4, byte * wptr, byte * rptr)
+{
+    int val;
 
+	if(queue_empty(*wptr, *rptr)) return 0;
+	val = queue[*rptr];
+    return val;
+}
 	// queue items cannot exceed 256
 int static inline  get_queue(int *queue, int sizex4, byte * wptr, byte * rptr)
 {
@@ -1305,13 +1316,14 @@ int static inline  get_queue(int *queue, int sizex4, byte * wptr, byte * rptr)
 	return val;
 }
 
-void static inline  put_queue(int *queue, int sizex4, byte * wptr, byte * rptr, int val)
+int static inline  put_queue(int *queue, int sizex4, byte * wptr, byte * rptr, int val)
 {
 	byte nwptr = *wptr == sizex4 / 4 - 1 ? 0 : *wptr + 1;
 
-	if(nwptr == *rptr) return;											// full
+	if(nwptr == *rptr) return -1;											// full
 	queue[*wptr] = val;
 	*wptr = nwptr;
+    return 0;
 }
 
 void static inline queue_init(int *queue, int sizex4, byte * wptr, byte * rptr)
@@ -1341,36 +1353,36 @@ typedef struct _tmrtask {
 }tmrtask;
 
 typedef struct  {
-	word advtx;         // 0
-	byte advwait;       // 2
-	byte advrx;         // 3
+	byte advtx;         // 0
+	byte scanrx;        // 1
+	byte advrx;         // 2
+	byte reqrx;         // 3
 	byte rsprx;			// 4
-	byte reqrx;         // 5
-	byte connrx;        // 6
+	byte connrx;        // 5
+    byte conntx;        // 6
 	byte evtrx;         // 7
-	byte advch;			// 8
-	byte lastch;		// 9
-	byte freq_index;    // a
-	byte status;        // b
-	byte flag;          // c
-	volatile byte state;// d
-	volatile byte cmd;	// e
-	byte acked;         // f
-	uint clk_ratio;		// 10
-	word sifs;          // 14
-	byte twptr, trptr;	// 16
-	byte cwptr, crptr;	// 18
-	byte tqw, tqr;      // 1a
-    byte miss;          // 1c
-    byte rxok;          // 1d
-	byte sptr;          // 1e
-	byte stop_cnt;      // 1f
-    byte enc;	        // 20
-	byte le_inited;     // 21
-	bool le_master:1;   // 22
+
+
+    byte total_dev;     // 8
+    byte active_dev;    // 9
+
+	byte status;
+	byte flag;
+	volatile byte state;
+	volatile byte cmd;
+	byte acked;
+
+    byte *encbuf;
+    uint calib_old_rtc;
+    uint calib_loop_cnt;
+    uint32_t calib_anchor;
+    byte le_inited;
+	bool le_master:1;
     byte unused:7;
-    void *advtimer;
-	int slist[256];	// 20
+
+	byte twptr, trptr;
+    volatile byte tfull;
+    tmrtask timers[16];
 } fixed;
 extern fixed s;
 

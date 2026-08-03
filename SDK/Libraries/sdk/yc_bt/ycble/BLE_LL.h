@@ -1,11 +1,11 @@
 #ifndef __LL_H_
 #define __LL_H_
 
-typedef struct
+typedef enum
 {
-	uint8_t features[8];
-	uint8_t version[5];
-}LL_ParamStru ;
+	LL_ERR_PIN_OR_KEY_MISSING = 0x06,
+}LL_ErrCode;
 
-void le_send_ll(byte cmd);
+
+void le_send_ll(dev_handle_t dhandle, uint8_t cmd, uint8_t *p);
 #endif //__LL_H_

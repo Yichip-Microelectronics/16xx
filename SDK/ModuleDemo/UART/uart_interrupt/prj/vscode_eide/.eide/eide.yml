@@ -24,6 +24,8 @@ targets:
       - ../../../../../Libraries/bt_code
       - ../../../../../Libraries/sdk/yc_bt
       - ../../../../../Libraries/sdk/yc_usb
+    settings:
+      debugger: cortex-debug
     toolchain: RISCV_GCC
     toolchainConfigMap:
       RISCV_GCC:
